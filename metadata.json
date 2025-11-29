@@ -1,0 +1,7 @@
+{
+  "name": "갓생스쿨",
+  "description": "A habit-forming education platform featuring short classes, challenges, and growth records with a mobile-first design.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

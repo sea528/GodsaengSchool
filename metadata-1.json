@@ -1,0 +1,7 @@
+{
+  "name": "God saeng",
+  "description": "A habit-forming education platform featuring short classes, challenges, and growth records with a mobile-first design.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
