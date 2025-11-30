@@ -19,6 +19,7 @@ export enum Screen {
   CREATE_CLASS = 'CREATE_CLASS',
   SIGNUP = 'SIGNUP',
   ADMIN_MANAGE_USERS = 'ADMIN_MANAGE_USERS',
+  BULK_UPLOAD = 'BULK_UPLOAD',
 }
 
 export enum UserType {
@@ -29,6 +30,7 @@ export enum UserType {
 
 export interface ClassItem {
   id: string;
+  schoolId: string; // Added
   title: string;
   date: string;
   type: 'video' | 'link';
@@ -39,22 +41,23 @@ export interface ClassItem {
 
 export interface ChallengeItem {
   id: string;
+  schoolId: string; // Added
   title: string;
   status: 'active' | 'pending';
   participants: number;
   description?: string;
-  // New fields
   duration?: string;
   targetGrade?: string;
   goalSummary?: string;
   verificationMethod?: 'photo' | 'video' | 'file';
-  aiWeight?: number; // 0-100
+  aiWeight?: number;
   badgeName?: string;
-  reward?: string; // Points
+  reward?: string;
 }
 
 export interface ActivityItem {
   id: string;
+  schoolId: string; // Added
   title: string;
   date: string;
   score: number;
@@ -80,6 +83,7 @@ export interface PointHistoryItem {
 }
 
 export interface RegisteredClass {
+  schoolId: string; // Added
   name: string;
   subject: string;
   code: string;
@@ -91,12 +95,12 @@ export interface StudentProfile {
 }
 
 export interface TeacherProfile {
-  teacherType?: 'HOMEROOM' | 'SUBJECT'; // 학급담임 | 교과담임
+  teacherType?: 'HOMEROOM' | 'SUBJECT';
 }
 
 export interface User {
   id: string;
-  // Email removed
+  schoolId: string; // Added: Data isolation key
   password?: string;
   name: string;
   role: UserType;

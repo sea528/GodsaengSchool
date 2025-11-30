@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Lock, User as UserIcon, BookOpen } from 'lucide-react';
+import { Lock, User as UserIcon, BookOpen, School } from 'lucide-react';
 import { Button } from './Button';
 import { User, UserType } from '../types';
 import { StorageService } from '../services/storage';
@@ -13,6 +13,7 @@ interface LoginScreenProps {
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwitchToRegister }) => {
   const [loginType, setLoginType] = useState<UserType>(UserType.STUDENT);
   const [formData, setFormData] = useState({
+    schoolId: '',
     name: '',
     studentNumber: '',
     password: ''
@@ -21,6 +22,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = () => {
+    if (!formData.schoolId) {
+      setError('학교명을 입력해주세요.');
+      return;
+    }
+
     // Teacher validation: Name + Password
     if (loginType === UserType.TEACHER) {
       if (!formData.name || !formData.password) {
@@ -42,32 +48,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
 
     setTimeout(() => {
       const user = StorageService.login({
-        name: formData.name, // Will be empty for students, ignored by service logic for student type
+        name: formData.name, 
         password: formData.password,
         studentNumber: formData.studentNumber,
-        type: loginType
+        type: loginType,
+        schoolId: formData.schoolId
       });
 
       if (user) {
         onLoginSuccess(user);
       } else {
-        // Fallback for demo/testing
-        if (formData.password === 'demo') {
-           const demoUser: User = {
-             id: Date.now().toString(),
-             name: loginType === UserType.STUDENT ? '학생(데모)' : formData.name,
-             role: loginType,
-             password: 'demo',
-             profile: loginType === UserType.STUDENT 
-               ? { points: 0, studentNumber: formData.studentNumber || '24001' }
-               : { teacherType: 'HOMEROOM' }
-           };
-           StorageService.register(demoUser);
-           onLoginSuccess(demoUser);
-        } else {
-          setError('정보가 일치하지 않습니다. 입력을 확인해주세요.');
-          setIsLoading(false);
-        }
+         setError('학교명, 정보 또는 비밀번호가 일치하지 않습니다.');
+         setIsLoading(false);
       }
     }, 1000);
   };
@@ -78,8 +70,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
         <h1 className="text-[24px] font-bold text-text-main">로그인</h1>
       </div>
 
-      {/* Tabs */}
-      <div className="flex p-1 bg-secondary-bg rounded-[12px] mb-8">
+      <div className="flex p-1 bg-secondary-bg rounded-[12px] mb-6">
         <button
           onClick={() => { setLoginType(UserType.STUDENT); setError(''); }}
           className={`flex-1 py-3 text-sm font-bold rounded-[8px] transition-all ${
@@ -103,6 +94,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
       </div>
 
       <div className="flex-1 space-y-4">
+        {/* School Name Input (Common) */}
+        <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+          <label className="text-sm font-medium text-text-main">학교명</label>
+          <div className="relative">
+            <School className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-text" size={20} />
+            <input
+              type="text"
+              value={formData.schoolId}
+              onChange={(e) => setFormData({...formData, schoolId: e.target.value})}
+              className="w-full h-[52px] pl-10 pr-4 border border-card-border rounded-[12px] focus:outline-none focus:border-primary transition-colors"
+              placeholder="학교 이름을 입력하세요 (예: 갓생고)"
+            />
+          </div>
+        </div>
+
         {/* Name Input - Only for Teachers */}
         {loginType === UserType.TEACHER && (
           <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">

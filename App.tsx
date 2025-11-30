@@ -6,7 +6,8 @@ import { Toast } from './components/Toast';
 import { BottomNav } from './components/BottomNav';
 import { LoginScreen } from './components/LoginScreen';
 import { RegisterScreen } from './components/RegisterScreen';
-import { AdminManageUsersScreen } from './components/AdminManageUsersScreen'; // Added Import
+import { AdminManageUsersScreen } from './components/AdminManageUsersScreen';
+import { BulkUploadScreen } from './components/BulkUploadScreen';
 import { StorageService } from './services/storage';
 import { generateClassThumbnail, analyzeComment, verifyChallengeImage } from './services/geminiService';
 import { Play, Pause, RotateCcw, Upload, Camera, FileText, ChevronRight, CheckCircle, Clock, AlertTriangle, Target, AlertCircle, Plus, Video, Image, Film, File, FileSpreadsheet, Coins, Award, Loader2, Sparkles, Users, BookOpen, Link as LinkIcon, LogOut, Filter, ExternalLink, Copy, RefreshCw, ChevronDown, PlayCircle, Smartphone, Monitor, Trash2, Settings } from 'lucide-react';
@@ -50,7 +51,7 @@ const WelcomeScreen = ({ onNext }: { onNext: () => void }) => (
 );
 
 // Account Selection Screen
-const AccountSelectionScreen = ({ onSelect }: { onSelect: (type: UserType) => void }) => (
+const AccountSelectionScreen = ({ onSelect, onBulkUpload }: { onSelect: (type: UserType) => void, onBulkUpload: () => void }) => (
   <div className="flex flex-col h-full p-6 bg-white">
     <h1 className="text-[28px] font-bold text-text-main leading-[36px] mb-8">
       계정 유형을<br />선택하세요
@@ -62,6 +63,9 @@ const AccountSelectionScreen = ({ onSelect }: { onSelect: (type: UserType) => vo
       <button onClick={() => onSelect(UserType.TEACHER)} className="w-full p-5 text-left rounded-[12px] border-2 border-card-border bg-white text-text-main hover:border-primary/50 transition-all font-bold">
         교사로 가입하기
       </button>
+    </div>
+    <div className="mt-auto text-center">
+         <Button variant="link" onClick={onBulkUpload} className="text-xs text-muted-text">관리자 / 일괄 등록</Button>
     </div>
   </div>
 );
@@ -103,7 +107,7 @@ const ClassJoinScreen = ({ onJoin, onCreate, userType }: { onJoin: (code: string
   );
 };
 
-// 3.1 Create Class Screen (Teacher Only)
+// 3.1 Create Class Screen
 const CreateClassScreen = ({ onSubmit }: { onSubmit: (classInfo: { name: string, subject: string, code: string }) => void }) => {
   const [className, setClassName] = useState('');
   const [grade, setGrade] = useState('1학년');
@@ -136,7 +140,6 @@ const CreateClassScreen = ({ onSubmit }: { onSubmit: (classInfo: { name: string,
             className="h-[48px] px-4 border border-[#E0E6F0] rounded-[8px] focus:outline-none focus:border-primary w-full text-[16px]"
           />
         </div>
-
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-[14px] text-muted-text font-medium">학년</label>
@@ -170,9 +173,9 @@ const CreateClassScreen = ({ onSubmit }: { onSubmit: (classInfo: { name: string,
   );
 };
 
-// 4. Student Class List Screen
+// ... StudentClassListScreen, DemoVideoScreen, CommentPracticeScreen ...
 const StudentClassListScreen = ({ classes, onSelectClass, onLogout, studentClassInfo }: { classes: any[], onSelectClass: (item: any) => void, onLogout: () => void, studentClassInfo?: any | null }) => {
-  return (
+    return (
     <div className="flex flex-col h-full bg-white">
       <div className="p-6 pb-4 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
         <div>
@@ -229,12 +232,8 @@ const StudentClassListScreen = ({ classes, onSelectClass, onLogout, studentClass
   );
 };
 
-// ... DemoVideoScreen, CommentPracticeScreen, StudentChallengeListScreen, VerificationUploadScreen ...
-// (Keeping these as they are, no changes needed for this specific request, just placeholders for brevity in the response if possible, but I must return full file content)
-
-// 4.1 Demo Video Screen
 const DemoVideoScreen = ({ classItem, onFinish, onBack }: { classItem: any | null, onFinish: () => void, onBack: () => void }) => {
-  const [videoError, setVideoError] = useState(false);
+    const [videoError, setVideoError] = useState(false);
   
   const title = classItem?.title || "데모 갓생강의 보기";
   const description = classItem?.description || "짧은 강의를 보고 댓글로 요약을 남겨 보세요. 자동으로 배지를 드립니다.";
@@ -369,9 +368,8 @@ const DemoVideoScreen = ({ classItem, onFinish, onBack }: { classItem: any | nul
   );
 };
 
-// 5. Comment Practice Screen
 const CommentPracticeScreen = ({ onSubmit }: { onSubmit: (score: number, message: string) => void }) => {
-  const [type, setType] = useState('question');
+    const [type, setType] = useState('question');
   const [comment, setComment] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -447,45 +445,54 @@ const CommentPracticeScreen = ({ onSubmit }: { onSubmit: (score: number, message
   );
 };
 
-// 6. Student Challenge List Screen
-const StudentChallengeListScreen = ({ challenges, onStart, onLogout }: { challenges: any[], onStart: (challenge: any) => void, onLogout: () => void }) => {
+// ... Teacher Components ...
+const TeacherClassListScreen = ({ onUpload, classes, onLogout, onDelete, onAdmin, currentUser }: { onUpload: () => void, classes: any[], onLogout: () => void, onDelete: (id: string) => void, onAdmin: () => void, currentUser: User | null }) => {
   return (
-    <div className="flex flex-col h-full bg-white overflow-y-auto">
+    <div className="flex flex-col h-full bg-white">
       <div className="p-6 pb-4 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
-        <h1 className="text-[20px] font-bold text-text-main">
-          도전 가능한 갓생도전
-        </h1>
-        <button onClick={onLogout} className="text-muted-text hover:text-primary transition-colors p-1" aria-label="로그아웃">
-          <LogOut size={20} />
-        </button>
+        <div>
+          <h1 className="text-[20px] font-bold text-text-main">갓생강의</h1>
+           <p className="text-xs text-primary mt-1 font-medium">{currentUser?.schoolId} ({currentUser?.name})</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="icon" onClick={onUpload} aria-label="클래스 업로드">
+            <Plus size={24} className="text-primary" />
+          </Button>
+          {/* Admin Button - ONLY visible for haewon */}
+          {currentUser?.name === 'haewon' && (
+            <Button variant="icon" onClick={onAdmin} aria-label="사용자 관리">
+              <Settings size={24} className="text-muted-text hover:text-primary" />
+            </Button>
+          )}
+          <button onClick={onLogout} className="text-muted-text hover:text-primary transition-colors ml-2" aria-label="로그아웃">
+            <LogOut size={20} />
+          </button>
+        </div>
       </div>
-      <div className="p-6 space-y-6">
-        {challenges.length === 0 ? (
-          <div className="text-center text-muted-text py-10">
-            <Target size={48} className="mx-auto mb-4 opacity-20" />
-            <p>현재 진행 중인 갓생도전이 없습니다.</p>
-          </div>
+      <div className="flex-1 p-4 overflow-y-auto space-y-3">
+        {classes.length === 0 ? (
+          <div className="text-center py-8 text-muted-text text-sm">등록된 갓생강의가 없습니다.</div>
         ) : (
-          challenges.map(challenge => (
-            <div key={challenge.id} className="bg-white border border-card-border rounded-[12px] shadow-card overflow-hidden">
-              <div className="h-[120px] bg-secondary-bg flex items-center justify-center">
-                <Target size={32} className="text-primary/40" />
+          classes.map(c => (
+            <div key={c.id} className="flex gap-4 p-3 border border-gray-100 rounded-[12px] shadow-sm overflow-hidden group">
+              <div className="w-[120px] h-[68px] bg-gray-200 rounded-[8px] flex items-center justify-center flex-shrink-0 relative overflow-hidden">
+                {c.thumbnail ? (
+                  <img src={c.thumbnail} alt={c.title} className="w-full h-full object-cover" />
+                ) : (
+                  <Video className="text-gray-400" />
+                )}
               </div>
-              <div className="p-5">
-                <div className="flex gap-2 mb-2">
-                  <span className="bg-reward-badge/20 text-orange-700 px-2 py-0.5 rounded text-[12px] font-bold">{challenge.duration || '1주일'} 도전</span>
-                  {challenge.status === 'active' && <span className="bg-blue-100 text-primary px-2 py-0.5 rounded text-[12px] font-bold">진행중</span>}
-                </div>
-                <h2 className="text-[18px] font-bold mb-2">{challenge.title}</h2>
-                <p className="text-[14px] text-muted-text mb-4">
-                  {challenge.description || "매일 꾸준히 실천하고 인증하세요!"}
-                </p>
-                <div className="flex items-center gap-2 text-[13px] text-text-main border-t border-gray-100 pt-3">
-                  <span className="w-5 h-5 rounded-full bg-reward-badge flex items-center justify-center text-[10px]">🏅</span>
-                  <span>완주 시 배지 + {challenge.reward || "500P"}</span>
-                </div>
-                <Button fullWidth className="mt-4" onClick={() => onStart(challenge)}>인증하기</Button>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-sm mb-1 line-clamp-2">{c.title}</h3>
+                <p className="text-xs text-muted-text">{c.date}</p>
               </div>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onDelete(c.id); }}
+                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors self-center mr-1"
+                aria-label="강의 삭제"
+              >
+                <Trash2 size={18} />
+              </button>
             </div>
           ))
         )}
@@ -494,10 +501,165 @@ const StudentChallengeListScreen = ({ challenges, onStart, onLogout }: { challen
   );
 };
 
-// 7. Verification Upload Screen, 8. Reward Screen, 9. Growth Record Screen...
-// (Assuming these are present, truncated for brevity to focus on the request)
+const UploadClassScreen = ({ onSubmit, onCancel }: { onSubmit: (data: { title: string, type: 'video' | 'link', url?: string, thumbnail?: string }) => void, onCancel: () => void }) => {
+    const [title, setTitle] = useState('');
+    const [uploadType, setUploadType] = useState<'file' | 'link'>('file');
+    const [url, setUrl] = useState('');
+    const [thumbnail, setThumbnail] = useState<string | null>(null);
+    const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
+    const [selectedFileName, setSelectedFileName] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleGenerateThumbnail = async () => {
+        if (!title) return;
+        setIsGeneratingThumbnail(true);
+        const generatedImage = await generateClassThumbnail(title);
+        if (generatedImage) {
+        setThumbnail(generatedImage);
+        }
+        setIsGeneratingThumbnail(false);
+    };
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+           const file = e.target.files[0];
+           setSelectedFileName(file.name);
+           const objectUrl = URL.createObjectURL(file);
+           setUrl(objectUrl);
+           if (!title) setTitle(file.name.replace(/\.[^/.]+$/, ""));
+        }
+    };
+    return (
+        <div className="flex flex-col h-full bg-white overflow-y-auto">
+        <div className="p-6 pb-4 border-b border-gray-100 sticky top-0 bg-white z-10"><h1 className="text-[24px] font-bold text-text-main">새 갓생강의 업로드</h1></div>
+        <div className="p-6 space-y-6">
+            <div className="space-y-2"><label className="text-sm font-medium text-text-main">제목</label><input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="강의 제목을 입력하세요" className="w-full h-[44px] px-3 border border-card-border rounded-[8px] outline-none focus:border-primary" /></div>
+            <div className="space-y-2"><label className="text-sm font-medium text-text-main">업로드 방식</label><div className="flex gap-2 p-1 bg-secondary-bg rounded-[12px]"><button onClick={() => setUploadType('file')} className={`flex-1 py-2.5 rounded-[8px] text-sm font-bold transition-all ${uploadType === 'file' ? 'bg-white text-primary shadow-sm' : 'text-muted-text hover:text-text-main'}`}>파일 업로드</button><button onClick={() => setUploadType('link')} className={`flex-1 py-2.5 rounded-[8px] text-sm font-bold transition-all ${uploadType === 'link' ? 'bg-white text-primary shadow-sm' : 'text-muted-text hover:text-text-main'}`}>링크 공유</button></div></div>
+            {uploadType === 'file' ? (<><input type="file" ref={fileInputRef} className="hidden" accept="video/*" onChange={handleFileChange} /><div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-card-border rounded-[12px] bg-secondary-bg/30 h-[120px] flex flex-col items-center justify-center text-muted-text cursor-pointer hover:bg-secondary-bg/50 transition-colors"><Video size={32} className="mb-2 opacity-50" /><span className="text-sm font-medium">{selectedFileName || "클릭하여 영상 파일 선택"}</span>{selectedFileName && <span className="text-xs text-primary mt-1">파일이 선택되었습니다</span>}</div></>) : (<div className="space-y-2"><label className="text-sm font-medium text-text-main">링크 주소</label><div className="relative"><LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-text" size={18} /><input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="YouTube 등 영상 링크 입력" className="w-full h-[44px] pl-10 pr-3 border border-card-border rounded-[8px] outline-none focus:border-primary" /></div></div>)}
+            <div className="space-y-2 pt-4 border-t border-gray-100"><label className="text-sm font-medium text-text-main flex items-center justify-between"><span>강의 썸네일</span><span className="text-xs text-primary font-normal bg-primary/10 px-2 py-0.5 rounded-full">AI 추천</span></label>{thumbnail ? (<div className="relative w-full aspect-video rounded-[12px] overflow-hidden border border-card-border group"><img src={thumbnail} alt="Generated Thumbnail" className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={handleGenerateThumbnail} className="bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-full flex items-center gap-2 hover:bg-white/30 transition-colors"><RefreshCw size={16} /> 다시 생성</button></div></div>) : (<div className="bg-secondary-bg/30 rounded-[12px] p-6 text-center border border-card-border"><div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3 text-primary"><Sparkles size={24} /></div><p className="text-sm text-text-main font-medium mb-1">AI 썸네일 만들기</p><p className="text-xs text-muted-text mb-4">강의 제목을 분석하여 어울리는 이미지를 만들어드려요.</p><Button onClick={handleGenerateThumbnail} disabled={!title || isGeneratingThumbnail} variant="secondary" className="h-[40px] text-sm bg-white border border-card-border shadow-sm hover:border-primary">{isGeneratingThumbnail ? (<><Loader2 className="animate-spin mr-2" size={16} /> 생성 중...</>) : ("AI로 생성하기")}</Button></div>)}</div>
+        </div>
+        <div className="flex gap-3 mt-auto p-6 pt-0"><Button variant="secondary" className="flex-1" onClick={onCancel}>취소</Button><Button className="flex-1" onClick={() => onSubmit({title: title || "새로운 강의", type: uploadType, url: url, thumbnail: thumbnail || undefined})}>업로드</Button></div>
+        </div>
+    );
+};
+const TeacherChallengeListScreen = ({ onCreate, challenges, onLogout, onDelete }: { onCreate: () => void, challenges: any[], onLogout: () => void, onDelete: (id: string) => void }) => {
+    return (
+    <div className="flex flex-col h-full bg-white">
+      <div className="p-6 pb-4 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
+        <div><h1 className="text-[20px] font-bold text-text-main">진행 중인 갓생도전</h1></div>
+        <div className="flex items-center gap-4">
+          <Button variant="icon" onClick={onCreate} aria-label="새 챌린지 만들기"><Plus size={24} className="text-primary" /></Button>
+          <button onClick={onLogout} className="text-muted-text hover:text-primary transition-colors" aria-label="로그아웃"><LogOut size={20} /></button>
+        </div>
+      </div>
+      <div className="flex-1 p-4 overflow-y-auto space-y-3">
+        {challenges.length === 0 ? (<div className="text-center py-8 text-muted-text text-sm">생성된 갓생도전이 없습니다.</div>) : (
+          challenges.map(c => (
+            <div key={c.id} className="p-4 border border-card-border rounded-[12px] shadow-sm bg-white relative group">
+              <button onClick={(e) => { e.stopPropagation(); onDelete(c.id); }} className="absolute top-3 right-3 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors z-20" aria-label="챌린지 삭제"><Trash2 size={18} /></button>
+              <div className="flex justify-between items-start mb-2 pr-8"><span className={`px-2 py-0.5 rounded text-[11px] font-bold ${c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{c.status === 'active' ? '진행중' : '대기중'}</span><span className="text-[12px] text-muted-text">{c.duration || '1주일'}</span></div>
+              <h3 className="font-bold text-[16px] mb-1">{c.title}</h3><p className="text-sm text-muted-text">참여자 {c.participants}명</p>
+              <div className="mt-2 text-xs text-muted-text flex items-center gap-2"><span className="bg-secondary-bg px-2 py-0.5 rounded">{c.targetGrade || '전체 학년'}</span><span className="text-primary font-medium">{c.reward ? `+${c.reward}P` : ''}</span></div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+const CreateChallengeScreen = ({ onSubmit, onCancel }: { onSubmit: (data: any) => void, onCancel: () => void }) => {
+    const [title, setTitle] = useState('');
+    const [duration, setDuration] = useState('1주일');
+    const [targetGrade, setTargetGrade] = useState('전체');
+    const [goalSummary, setGoalSummary] = useState('');
+    const [verificationMethod, setVerificationMethod] = useState<'photo' | 'video' | 'file'>('photo');
+    const [aiWeight, setAiWeight] = useState(50);
+    const [badgeName, setBadgeName] = useState('');
+    const [rewardPoints, setRewardPoints] = useState('');
+
+    const handleSubmit = () => {
+        onSubmit({title: title || "새로운 도전", duration, targetGrade, goalSummary, verificationMethod, aiWeight, badgeName, reward: rewardPoints || '500'});
+    };
+    return (
+        <div className="flex flex-col h-full bg-white overflow-y-auto">
+        <div className="p-6 pb-4 border-b border-gray-100 sticky top-0 bg-white z-10"><h1 className="text-[24px] font-bold text-text-main">새 갓생도전 만들기</h1></div>
+        <div className="p-6 space-y-8 pb-32">
+            <div className="space-y-2"><label className="text-[14px] font-bold text-text-main">챌린지 제목</label><input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 아침 독서 10분 인증" className="w-full h-[48px] px-4 border border-card-border rounded-[8px] outline-none focus:border-primary bg-white text-[15px]" /></div>
+            <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><label className="text-[14px] font-bold text-text-main">기간</label><div className="relative"><select value={duration} onChange={(e) => setDuration(e.target.value)} className="w-full h-[48px] px-4 border border-card-border rounded-[8px] outline-none bg-white text-[15px] appearance-none"><option>1주일</option><option>2주일</option><option>한달</option></select><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-text pointer-events-none" size={18} /></div></div><div className="space-y-2"><label className="text-[14px] font-bold text-text-main">대상 학년</label><div className="relative"><select value={targetGrade} onChange={(e) => setTargetGrade(e.target.value)} className="w-full h-[48px] px-4 border border-card-border rounded-[8px] outline-none bg-white text-[15px] appearance-none"><option>전체</option><option>1학년</option><option>2학년</option><option>3학년</option></select><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-text pointer-events-none" size={18} /></div></div></div>
+            <div className="space-y-2"><label className="text-[14px] font-bold text-text-main">목표 요약</label><input type="text" value={goalSummary} onChange={(e) => setGoalSummary(e.target.value)} placeholder="학생들에게 보여질 핵심 목표를 적어주세요" className="w-full h-[48px] px-4 border border-card-border rounded-[8px] outline-none focus:border-primary bg-white text-[15px]" /></div>
+            <div className="space-y-3"><label className="text-[14px] font-bold text-text-main">검증 옵션</label><div className="flex gap-3">{[{ id: 'photo', label: '사진 허용', icon: <Image size={18} /> },{ id: 'video', label: '영상 허용', icon: <Film size={18} /> },{ id: 'file', label: '문서 허용', icon: <FileText size={18} /> },].map((opt) => (<button key={opt.id} onClick={() => setVerificationMethod(opt.id as any)} className={`flex-1 h-[48px] rounded-[8px] text-[14px] font-medium flex items-center justify-center gap-2 border transition-all ${verificationMethod === opt.id ? 'bg-primary/5 border-primary text-primary font-bold' : 'bg-white border-card-border text-muted-text hover:bg-gray-50'}`}>{opt.icon}{opt.label}</button>))}</div></div>
+            <div className="space-y-4 pt-4 border-t border-gray-100"><label className="text-[14px] font-bold text-text-main">자동 검증 가중치</label><div className="px-2 pb-2"><input type="range" min="0" max="100" value={aiWeight} onChange={(e) => setAiWeight(parseInt(e.target.value))} className="w-full accent-primary h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" /><div className="flex justify-between text-[12px] text-muted-text mt-3 font-medium"><span className="text-left w-1/3">메타데이터</span><span className="text-center w-1/3">AI 검사</span><span className="text-right w-1/3">동료평가</span></div></div></div>
+            <div className="space-y-4 pt-4 border-t border-gray-100"><label className="text-[14px] font-bold text-text-main">보상 설정</label><div className="flex gap-4 items-start"><div className="w-[52px] h-[52px] rounded-full bg-reward-badge flex items-center justify-center text-2xl shadow-sm flex-shrink-0">🏅</div><div className="flex-1 space-y-3"><input type="text" value={badgeName} onChange={(e) => setBadgeName(e.target.value)} placeholder="배지 이름" className="w-full h-[48px] px-4 border border-card-border rounded-[8px] outline-none focus:border-primary bg-white text-[15px]" /><input type="number" value={rewardPoints} onChange={(e) => setRewardPoints(e.target.value)} placeholder="지급 포인트 (예: 500)" className="w-full h-[48px] px-4 border border-card-border rounded-[8px] outline-none focus:border-primary bg-white text-[15px]" /></div></div></div>
+        </div>
+        <div className="p-6 bg-white border-t border-gray-100 flex gap-3 mt-auto absolute bottom-0 left-0 right-0"><Button variant="secondary" className="flex-1 bg-secondary-bg hover:bg-gray-100 text-primary" onClick={onCancel}>임시 저장</Button><Button className="flex-1" onClick={handleSubmit}>공개하기</Button></div>
+        </div>
+    );
+};
+const TeacherDashboardScreen = ({ myClass, activities, onReviewAction, onLogout }: { myClass?: any, activities: any[], onReviewAction: (id: string, status: 'trusted' | 'rejected') => void, onLogout: () => void }) => {
+  return (
+    <div className="flex flex-col h-full bg-secondary-bg">
+      <div className="bg-white p-6 shadow-sm z-10 sticky top-0">
+        <div className="flex justify-between items-start mb-2">
+          <h1 className="text-[24px] font-bold text-text-main">갓생케어 (검토 대기 제출물)</h1>
+          <button onClick={onLogout} className="text-muted-text hover:text-primary transition-colors p-1" aria-label="로그아웃">
+            <LogOut size={20} />
+          </button>
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="flex gap-2">
+            <span className="px-3 py-1.5 rounded-full bg-primary text-white text-xs">최신순</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-text">요약 알림</span>
+            <div className="w-8 h-4 bg-gray-300 rounded-full relative">
+              <div className="absolute w-4 h-4 bg-white rounded-full shadow left-0"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-24">
+        {activities.length === 0 ? (
+           <div className="text-center py-10 text-muted-text text-sm">제출된 활동이 없습니다.</div>
+        ) : (
+          activities.map((item) => (
+            <div key={item.id} className="bg-white p-4 rounded-[12px] shadow-card">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-bold text-[16px]">{item.student || '학생'}</span>
+                    <span className="text-[13px] text-muted-text">{item.date}</span>
+                  </div>
+                  <p className="text-[14px] text-text-main font-bold">{item.title}</p>
+                  <p className="text-[12px] text-muted-text mt-1">{item.type || '활동'} {item.progressInfo ? `(${item.progressInfo})` : ''}</p>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className={`px-2 py-1 rounded-[4px] text-[11px] font-bold ${
+                    item.status === 'trusted' ? 'bg-green-100 text-green-700' : 
+                    item.status === 'rejected' ? 'bg-red-100 text-red-700' : 
+                    'bg-[#FFEBEE] text-[#C62828]'
+                  }`}>
+                    {item.status === 'trusted' ? '승인됨' : item.status === 'rejected' ? '반려됨' : '검토 필요'}
+                  </span>
+                  {item.score && <span className={`text-[12px] font-bold mt-1 ${item.score > 80 ? 'text-green-600' : 'text-orange-600'}`}>
+                    점수 {item.score}
+                  </span>}
+                </div>
+              </div>
+
+              {(item.status !== 'trusted' && item.status !== 'rejected') && (
+                <div className="flex gap-2 mt-4">
+                  <Button variant="secondary" className="flex-1 h-[36px] text-sm py-0" onClick={() => onReviewAction(item.id, 'rejected')}>반려</Button>
+                  <Button variant="primary" className="flex-1 h-[36px] text-sm py-0" onClick={() => onReviewAction(item.id, 'trusted')}>승인</Button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
 const VerificationUploadScreen = ({ challengeTitle, onSubmit, onFail }: { challengeTitle: string, onSubmit: (valid: boolean) => void, onFail: (reason: string) => void }) => {
-    // ... existing implementation ...
     const [file, setFile] = useState<File | null>(null);
     const [isVerifying, setIsVerifying] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -569,7 +731,6 @@ const VerificationUploadScreen = ({ challengeTitle, onSubmit, onFail }: { challe
         </div>
     );
 };
-
 const RewardScreen = ({ message, points, isComplete, onViewGrowth, onChallengeMore }: { message: string, points: number, isComplete: boolean, onViewGrowth: () => void, onChallengeMore: () => void }) => {
   return (
     <div className="flex flex-col h-full p-6 bg-white text-center justify-center">
@@ -590,12 +751,10 @@ const RewardScreen = ({ message, points, isComplete, onViewGrowth, onChallengeMo
     </div>
   );
 };
-
 const GrowthRecordScreen = ({ userType, onLogout, activities, badges, pointHistory, totalPoints }: { userType: UserType, onLogout: () => void, activities: any[], badges: any[], pointHistory: any[], totalPoints: number }) => {
   const [currentView, setCurrentView] = useState<'history' | 'badges' | 'points'>('history');
-  // ... existing implementation ...
+  
   const renderContent = () => {
-      // (Implementation same as previous version)
       if (currentView === 'badges') {
           return (
              <div className="p-4"><h3 className="font-bold text-sm text-text-main mb-3 ml-1">나의 획득 배지</h3><div className="grid grid-cols-3 gap-4">{badges.length===0?<div className="col-span-3 text-center py-10 text-muted-text text-sm">아직 획득한 배지가 없습니다.</div>:badges.map((b)=>(<div key={b.id} className="bg-white p-4 rounded-[12px] shadow-sm flex flex-col items-center justify-center border border-card-border aspect-square"><div className="text-4xl mb-2">{b.icon}</div><div className="font-bold text-sm text-center">{b.name}</div><div className="text-xs text-muted-text mt-1">{b.date}</div></div>))}</div></div>
@@ -627,226 +786,50 @@ const GrowthRecordScreen = ({ userType, onLogout, activities, badges, pointHisto
     </div>
   );
 };
-
-// 10. Teacher Dashboard
-const TeacherDashboardScreen = ({ myClass, activities, onReviewAction, onLogout }: { myClass?: any, activities: any[], onReviewAction: (id: string, status: 'trusted' | 'rejected') => void, onLogout: () => void }) => {
+const StudentChallengeListScreen = ({ challenges, onStart, onLogout }: { challenges: any[], onStart: (challenge: any) => void, onLogout: () => void }) => {
   return (
-    <div className="flex flex-col h-full bg-secondary-bg">
-      <div className="bg-white p-6 shadow-sm z-10 sticky top-0">
-        <div className="flex justify-between items-start mb-2">
-          <h1 className="text-[24px] font-bold text-text-main">갓생케어 (검토 대기 제출물)</h1>
-          <button onClick={onLogout} className="text-muted-text hover:text-primary transition-colors p-1" aria-label="로그아웃">
-            <LogOut size={20} />
-          </button>
-        </div>
-        {/* ... */}
-        <div className="flex items-center justify-between">
-          <div className="flex gap-2">
-            <span className="px-3 py-1.5 rounded-full bg-primary text-white text-xs">최신순</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-text">요약 알림</span>
-            <div className="w-8 h-4 bg-gray-300 rounded-full relative">
-              <div className="absolute w-4 h-4 bg-white rounded-full shadow left-0"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-24">
-        {activities.length === 0 ? (
-           <div className="text-center py-10 text-muted-text text-sm">제출된 활동이 없습니다.</div>
-        ) : (
-          activities.map((item) => (
-            <div key={item.id} className="bg-white p-4 rounded-[12px] shadow-card">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-[16px]">{item.student || '학생'}</span>
-                    <span className="text-[13px] text-muted-text">{item.date}</span>
-                  </div>
-                  <p className="text-[14px] text-text-main font-bold">{item.title}</p>
-                  <p className="text-[12px] text-muted-text mt-1">{item.type || '활동'} {item.progressInfo ? `(${item.progressInfo})` : ''}</p>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className={`px-2 py-1 rounded-[4px] text-[11px] font-bold ${
-                    item.status === 'trusted' ? 'bg-green-100 text-green-700' : 
-                    item.status === 'rejected' ? 'bg-red-100 text-red-700' : 
-                    'bg-[#FFEBEE] text-[#C62828]'
-                  }`}>
-                    {item.status === 'trusted' ? '승인됨' : item.status === 'rejected' ? '반려됨' : '검토 필요'}
-                  </span>
-                  {item.score && <span className={`text-[12px] font-bold mt-1 ${item.score > 80 ? 'text-green-600' : 'text-orange-600'}`}>
-                    점수 {item.score}
-                  </span>}
-                </div>
-              </div>
-
-              {(item.status !== 'trusted' && item.status !== 'rejected') && (
-                <div className="flex gap-2 mt-4">
-                  <Button variant="secondary" className="flex-1 h-[36px] text-sm py-0" onClick={() => onReviewAction(item.id, 'rejected')}>반려</Button>
-                  <Button variant="primary" className="flex-1 h-[36px] text-sm py-0" onClick={() => onReviewAction(item.id, 'trusted')}>승인</Button>
-                </div>
-              )}
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-};
-
-// 11. Teacher Class List Screen (Updated with Admin Button)
-const TeacherClassListScreen = ({ onUpload, classes, onLogout, onDelete, onAdmin }: { onUpload: () => void, classes: any[], onLogout: () => void, onDelete: (id: string) => void, onAdmin: () => void }) => {
-  return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-white overflow-y-auto">
       <div className="p-6 pb-4 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
-        <div>
-          <h1 className="text-[20px] font-bold text-text-main">갓생강의</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="icon" onClick={onUpload} aria-label="클래스 업로드">
-            <Plus size={24} className="text-primary" />
-          </Button>
-          {/* Admin Button */}
-          <Button variant="icon" onClick={onAdmin} aria-label="사용자 관리">
-            <Settings size={24} className="text-muted-text hover:text-primary" />
-          </Button>
-          <button onClick={onLogout} className="text-muted-text hover:text-primary transition-colors ml-2" aria-label="로그아웃">
-            <LogOut size={20} />
-          </button>
-        </div>
+        <h1 className="text-[20px] font-bold text-text-main">
+          도전 가능한 갓생도전
+        </h1>
+        <button onClick={onLogout} className="text-muted-text hover:text-primary transition-colors p-1" aria-label="로그아웃">
+          <LogOut size={20} />
+        </button>
       </div>
-      <div className="flex-1 p-4 overflow-y-auto space-y-3">
-        {classes.length === 0 ? (
-          <div className="text-center py-8 text-muted-text text-sm">등록된 갓생강의가 없습니다.</div>
+      <div className="p-6 space-y-6">
+        {challenges.length === 0 ? (
+          <div className="text-center text-muted-text py-10">
+            <Target size={48} className="mx-auto mb-4 opacity-20" />
+            <p>현재 진행 중인 갓생도전이 없습니다.</p>
+          </div>
         ) : (
-          classes.map(c => (
-            <div key={c.id} className="flex gap-4 p-3 border border-gray-100 rounded-[12px] shadow-sm overflow-hidden group">
-              <div className="w-[120px] h-[68px] bg-gray-200 rounded-[8px] flex items-center justify-center flex-shrink-0 relative overflow-hidden">
-                {c.thumbnail ? (
-                  <img src={c.thumbnail} alt={c.title} className="w-full h-full object-cover" />
-                ) : (
-                  <Video className="text-gray-400" />
-                )}
+          challenges.map(challenge => (
+            <div key={challenge.id} className="bg-white border border-card-border rounded-[12px] shadow-card overflow-hidden">
+              <div className="h-[120px] bg-secondary-bg flex items-center justify-center">
+                <Target size={32} className="text-primary/40" />
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-sm mb-1 line-clamp-2">{c.title}</h3>
-                <p className="text-xs text-muted-text">{c.date}</p>
+              <div className="p-5">
+                <div className="flex gap-2 mb-2">
+                  <span className="bg-reward-badge/20 text-orange-700 px-2 py-0.5 rounded text-[12px] font-bold">{challenge.duration || '1주일'} 도전</span>
+                  {challenge.status === 'active' && <span className="bg-blue-100 text-primary px-2 py-0.5 rounded text-[12px] font-bold">진행중</span>}
+                </div>
+                <h2 className="text-[18px] font-bold mb-2">{challenge.title}</h2>
+                <p className="text-[14px] text-muted-text mb-4">
+                  {challenge.description || "매일 꾸준히 실천하고 인증하세요!"}
+                </p>
+                <div className="flex items-center gap-2 text-[13px] text-text-main border-t border-gray-100 pt-3">
+                  <span className="w-5 h-5 rounded-full bg-reward-badge flex items-center justify-center text-[10px]">🏅</span>
+                  <span>완주 시 배지 + {challenge.reward || "500P"}</span>
+                </div>
+                <Button fullWidth className="mt-4" onClick={() => onStart(challenge)}>인증하기</Button>
               </div>
-              <button 
-                onClick={(e) => { e.stopPropagation(); onDelete(c.id); }}
-                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors self-center mr-1"
-                aria-label="강의 삭제"
-              >
-                <Trash2 size={18} />
-              </button>
             </div>
           ))
         )}
       </div>
     </div>
   );
-};
-
-// ... UploadClassScreen, TeacherChallengeListScreen, CreateChallengeScreen ...
-const UploadClassScreen = ({ onSubmit, onCancel }: { onSubmit: (data: { title: string, type: 'video' | 'link', url?: string, thumbnail?: string }) => void, onCancel: () => void }) => {
-    // ... (Implementation remains the same as previously updated)
-    const [title, setTitle] = useState('');
-    const [uploadType, setUploadType] = useState<'file' | 'link'>('file');
-    const [url, setUrl] = useState('');
-    const [thumbnail, setThumbnail] = useState<string | null>(null);
-    const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
-    const [selectedFileName, setSelectedFileName] = useState('');
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const handleGenerateThumbnail = async () => {
-        if (!title) return;
-        setIsGeneratingThumbnail(true);
-        const generatedImage = await generateClassThumbnail(title);
-        if (generatedImage) {
-        setThumbnail(generatedImage);
-        }
-        setIsGeneratingThumbnail(false);
-    };
-    // ... rest of upload screen logic
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-           const file = e.target.files[0];
-           setSelectedFileName(file.name);
-           const objectUrl = URL.createObjectURL(file);
-           setUrl(objectUrl);
-           if (!title) setTitle(file.name.replace(/\.[^/.]+$/, ""));
-        }
-    };
-    return (
-        <div className="flex flex-col h-full bg-white overflow-y-auto">
-        <div className="p-6 pb-4 border-b border-gray-100 sticky top-0 bg-white z-10"><h1 className="text-[24px] font-bold text-text-main">새 갓생강의 업로드</h1></div>
-        <div className="p-6 space-y-6">
-            <div className="space-y-2"><label className="text-sm font-medium text-text-main">제목</label><input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="강의 제목을 입력하세요" className="w-full h-[44px] px-3 border border-card-border rounded-[8px] outline-none focus:border-primary" /></div>
-            <div className="space-y-2"><label className="text-sm font-medium text-text-main">업로드 방식</label><div className="flex gap-2 p-1 bg-secondary-bg rounded-[12px]"><button onClick={() => setUploadType('file')} className={`flex-1 py-2.5 rounded-[8px] text-sm font-bold transition-all ${uploadType === 'file' ? 'bg-white text-primary shadow-sm' : 'text-muted-text hover:text-text-main'}`}>파일 업로드</button><button onClick={() => setUploadType('link')} className={`flex-1 py-2.5 rounded-[8px] text-sm font-bold transition-all ${uploadType === 'link' ? 'bg-white text-primary shadow-sm' : 'text-muted-text hover:text-text-main'}`}>링크 공유</button></div></div>
-            {uploadType === 'file' ? (<><input type="file" ref={fileInputRef} className="hidden" accept="video/*" onChange={handleFileChange} /><div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-card-border rounded-[12px] bg-secondary-bg/30 h-[120px] flex flex-col items-center justify-center text-muted-text cursor-pointer hover:bg-secondary-bg/50 transition-colors"><Video size={32} className="mb-2 opacity-50" /><span className="text-sm font-medium">{selectedFileName || "클릭하여 영상 파일 선택"}</span>{selectedFileName && <span className="text-xs text-primary mt-1">파일이 선택되었습니다</span>}</div></>) : (<div className="space-y-2"><label className="text-sm font-medium text-text-main">링크 주소</label><div className="relative"><LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-text" size={18} /><input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="YouTube 등 영상 링크 입력" className="w-full h-[44px] pl-10 pr-3 border border-card-border rounded-[8px] outline-none focus:border-primary" /></div></div>)}
-            <div className="space-y-2 pt-4 border-t border-gray-100"><label className="text-sm font-medium text-text-main flex items-center justify-between"><span>강의 썸네일</span><span className="text-xs text-primary font-normal bg-primary/10 px-2 py-0.5 rounded-full">AI 추천</span></label>{thumbnail ? (<div className="relative w-full aspect-video rounded-[12px] overflow-hidden border border-card-border group"><img src={thumbnail} alt="Generated Thumbnail" className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={handleGenerateThumbnail} className="bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-full flex items-center gap-2 hover:bg-white/30 transition-colors"><RefreshCw size={16} /> 다시 생성</button></div></div>) : (<div className="bg-secondary-bg/30 rounded-[12px] p-6 text-center border border-card-border"><div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3 text-primary"><Sparkles size={24} /></div><p className="text-sm text-text-main font-medium mb-1">AI 썸네일 만들기</p><p className="text-xs text-muted-text mb-4">강의 제목을 분석하여 어울리는 이미지를 만들어드려요.</p><Button onClick={handleGenerateThumbnail} disabled={!title || isGeneratingThumbnail} variant="secondary" className="h-[40px] text-sm bg-white border border-card-border shadow-sm hover:border-primary">{isGeneratingThumbnail ? (<><Loader2 className="animate-spin mr-2" size={16} /> 생성 중...</>) : ("AI로 생성하기")}</Button></div>)}</div>
-        </div>
-        <div className="flex gap-3 mt-auto p-6 pt-0"><Button variant="secondary" className="flex-1" onClick={onCancel}>취소</Button><Button className="flex-1" onClick={() => onSubmit({title: title || "새로운 강의", type: uploadType, url: url, thumbnail: thumbnail || undefined})}>업로드</Button></div>
-        </div>
-    );
-};
-
-const TeacherChallengeListScreen = ({ onCreate, challenges, onLogout, onDelete }: { onCreate: () => void, challenges: any[], onLogout: () => void, onDelete: (id: string) => void }) => {
-  return (
-    <div className="flex flex-col h-full bg-white">
-      <div className="p-6 pb-4 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
-        <div><h1 className="text-[20px] font-bold text-text-main">진행 중인 갓생도전</h1></div>
-        <div className="flex items-center gap-4">
-          <Button variant="icon" onClick={onCreate} aria-label="새 챌린지 만들기"><Plus size={24} className="text-primary" /></Button>
-          <button onClick={onLogout} className="text-muted-text hover:text-primary transition-colors" aria-label="로그아웃"><LogOut size={20} /></button>
-        </div>
-      </div>
-      <div className="flex-1 p-4 overflow-y-auto space-y-3">
-        {challenges.length === 0 ? (<div className="text-center py-8 text-muted-text text-sm">생성된 갓생도전이 없습니다.</div>) : (
-          challenges.map(c => (
-            <div key={c.id} className="p-4 border border-card-border rounded-[12px] shadow-sm bg-white relative group">
-              <button onClick={(e) => { e.stopPropagation(); onDelete(c.id); }} className="absolute top-3 right-3 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors z-20" aria-label="챌린지 삭제"><Trash2 size={18} /></button>
-              <div className="flex justify-between items-start mb-2 pr-8"><span className={`px-2 py-0.5 rounded text-[11px] font-bold ${c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{c.status === 'active' ? '진행중' : '대기중'}</span><span className="text-[12px] text-muted-text">{c.duration || '1주일'}</span></div>
-              <h3 className="font-bold text-[16px] mb-1">{c.title}</h3><p className="text-sm text-muted-text">참여자 {c.participants}명</p>
-              <div className="mt-2 text-xs text-muted-text flex items-center gap-2"><span className="bg-secondary-bg px-2 py-0.5 rounded">{c.targetGrade || '전체 학년'}</span><span className="text-primary font-medium">{c.reward ? `+${c.reward}P` : ''}</span></div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-};
-
-const CreateChallengeScreen = ({ onSubmit, onCancel }: { onSubmit: (data: any) => void, onCancel: () => void }) => {
-    // ... (Implementation remains same)
-    const [title, setTitle] = useState('');
-    const [duration, setDuration] = useState('1주일');
-    const [targetGrade, setTargetGrade] = useState('전체');
-    const [goalSummary, setGoalSummary] = useState('');
-    const [verificationMethod, setVerificationMethod] = useState<'photo' | 'video' | 'file'>('photo');
-    const [aiWeight, setAiWeight] = useState(50);
-    const [badgeName, setBadgeName] = useState('');
-    const [rewardPoints, setRewardPoints] = useState('');
-
-    const handleSubmit = () => {
-        onSubmit({title: title || "새로운 도전", duration, targetGrade, goalSummary, verificationMethod, aiWeight, badgeName, reward: rewardPoints || '500'});
-    };
-    return (
-        <div className="flex flex-col h-full bg-white overflow-y-auto">
-        <div className="p-6 pb-4 border-b border-gray-100 sticky top-0 bg-white z-10"><h1 className="text-[24px] font-bold text-text-main">새 갓생도전 만들기</h1></div>
-        <div className="p-6 space-y-8 pb-32">
-            <div className="space-y-2"><label className="text-[14px] font-bold text-text-main">챌린지 제목</label><input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 아침 독서 10분 인증" className="w-full h-[48px] px-4 border border-card-border rounded-[8px] outline-none focus:border-primary bg-white text-[15px]" /></div>
-            <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><label className="text-[14px] font-bold text-text-main">기간</label><div className="relative"><select value={duration} onChange={(e) => setDuration(e.target.value)} className="w-full h-[48px] px-4 border border-card-border rounded-[8px] outline-none bg-white text-[15px] appearance-none"><option>1주일</option><option>2주일</option><option>한달</option></select><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-text pointer-events-none" size={18} /></div></div><div className="space-y-2"><label className="text-[14px] font-bold text-text-main">대상 학년</label><div className="relative"><select value={targetGrade} onChange={(e) => setTargetGrade(e.target.value)} className="w-full h-[48px] px-4 border border-card-border rounded-[8px] outline-none bg-white text-[15px] appearance-none"><option>전체</option><option>1학년</option><option>2학년</option><option>3학년</option></select><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-text pointer-events-none" size={18} /></div></div></div>
-            <div className="space-y-2"><label className="text-[14px] font-bold text-text-main">목표 요약</label><input type="text" value={goalSummary} onChange={(e) => setGoalSummary(e.target.value)} placeholder="학생들에게 보여질 핵심 목표를 적어주세요" className="w-full h-[48px] px-4 border border-card-border rounded-[8px] outline-none focus:border-primary bg-white text-[15px]" /></div>
-            <div className="space-y-3"><label className="text-[14px] font-bold text-text-main">검증 옵션</label><div className="flex gap-3">{[{ id: 'photo', label: '사진 허용', icon: <Image size={18} /> },{ id: 'video', label: '영상 허용', icon: <Film size={18} /> },{ id: 'file', label: '문서 허용', icon: <FileText size={18} /> },].map((opt) => (<button key={opt.id} onClick={() => setVerificationMethod(opt.id as any)} className={`flex-1 h-[48px] rounded-[8px] text-[14px] font-medium flex items-center justify-center gap-2 border transition-all ${verificationMethod === opt.id ? 'bg-primary/5 border-primary text-primary font-bold' : 'bg-white border-card-border text-muted-text hover:bg-gray-50'}`}>{opt.icon}{opt.label}</button>))}</div></div>
-            <div className="space-y-4 pt-4 border-t border-gray-100"><label className="text-[14px] font-bold text-text-main">자동 검증 가중치</label><div className="px-2 pb-2"><input type="range" min="0" max="100" value={aiWeight} onChange={(e) => setAiWeight(parseInt(e.target.value))} className="w-full accent-primary h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" /><div className="flex justify-between text-[12px] text-muted-text mt-3 font-medium"><span className="text-left w-1/3">메타데이터</span><span className="text-center w-1/3">AI 검사</span><span className="text-right w-1/3">동료평가</span></div></div></div>
-            <div className="space-y-4 pt-4 border-t border-gray-100"><label className="text-[14px] font-bold text-text-main">보상 설정</label><div className="flex gap-4 items-start"><div className="w-[52px] h-[52px] rounded-full bg-reward-badge flex items-center justify-center text-2xl shadow-sm flex-shrink-0">🏅</div><div className="flex-1 space-y-3"><input type="text" value={badgeName} onChange={(e) => setBadgeName(e.target.value)} placeholder="배지 이름" className="w-full h-[48px] px-4 border border-card-border rounded-[8px] outline-none focus:border-primary bg-white text-[15px]" /><input type="number" value={rewardPoints} onChange={(e) => setRewardPoints(e.target.value)} placeholder="지급 포인트 (예: 500)" className="w-full h-[48px] px-4 border border-card-border rounded-[8px] outline-none focus:border-primary bg-white text-[15px]" /></div></div></div>
-        </div>
-        <div className="p-6 bg-white border-t border-gray-100 flex gap-3 mt-auto absolute bottom-0 left-0 right-0"><Button variant="secondary" className="flex-1 bg-secondary-bg hover:bg-gray-100 text-primary" onClick={onCancel}>임시 저장</Button><Button className="flex-1" onClick={handleSubmit}>공개하기</Button></div>
-        </div>
-    );
 };
 
 
@@ -884,11 +867,7 @@ const App: React.FC = () => {
   const [allActivities, setAllActivities] = useState<any[]>([]);
 
   useEffect(() => {
-    setRegisteredClasses(StorageService.getRegisteredClasses());
-    setClasses(StorageService.getClasses());
-    setChallenges(StorageService.getChallenges());
-    setAllActivities(StorageService.getActivities());
-
+    // Only load initial data. Detailed data is loaded after login.
     const user = StorageService.getCurrentUser();
     if (user) {
       handleLoginSuccess(user);
@@ -897,7 +876,13 @@ const App: React.FC = () => {
 
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
-    const all = StorageService.getActivities();
+    
+    // Load Data FILTERED by School via StorageService helper
+    setRegisteredClasses(StorageService.getRegisteredClasses(user));
+    setClasses(StorageService.getClasses(user));
+    setChallenges(StorageService.getChallenges(user));
+    
+    const all = StorageService.getActivities(user);
     setAllActivities(all);
 
     if (user.role === UserType.STUDENT) {
@@ -918,12 +903,9 @@ const App: React.FC = () => {
   
   const handleReviewAction = (id: string, status: 'trusted' | 'rejected') => {
     StorageService.updateActivityStatus(id, status);
-    
-    // Update both local states to reflect changes immediately
     const updater = (prev: any[]) => prev.map(item => item.id === id ? { ...item, status } : item);
     setClassActivities(updater);
     setAllActivities(updater);
-    
     showToast(`상태가 ${status === 'trusted' ? '승인' : '반려'}되었습니다.`, 'success');
   };
 
@@ -958,6 +940,8 @@ const App: React.FC = () => {
     setMyPointHistory([]);
     setTotalPoints(0);
     setClassActivities([]);
+    setClasses([]);
+    setChallenges([]);
   };
 
   const containerClass = "w-full h-[100dvh] md:max-w-[480px] md:h-[800px] md:my-8 md:rounded-[24px] md:shadow-2xl md:overflow-hidden bg-white mx-auto relative flex flex-col";
@@ -968,7 +952,10 @@ const App: React.FC = () => {
         return <WelcomeScreen onNext={() => setScreen(Screen.LOGIN)} />;
 
       case Screen.ACCOUNT_SELECTION:
-        return <AccountSelectionScreen onSelect={(type) => { setRegisterRole(type); setScreen(Screen.REGISTER); }} />;
+        return <AccountSelectionScreen 
+            onSelect={(type) => { setRegisterRole(type); setScreen(Screen.REGISTER); }} 
+            onBulkUpload={() => setScreen(Screen.BULK_UPLOAD)}
+        />;
 
       case Screen.LOGIN: 
         return <LoginScreen onLoginSuccess={handleLoginSuccess} onSwitchToRegister={() => setScreen(Screen.ACCOUNT_SELECTION)} />;
@@ -1004,7 +991,14 @@ const App: React.FC = () => {
         );
       
       case Screen.CREATE_CLASS:
-         return <CreateClassScreen onSubmit={(classInfo) => { StorageService.addRegisteredClass(classInfo); setRegisteredClasses(prev => [...prev, classInfo]); showToast(`${classInfo.name}이(가) 생성되었습니다!`, "success"); setScreen(Screen.TEACHER_CLASSES); setActiveTab('classes'); }} />;
+         return <CreateClassScreen onSubmit={(classInfo) => { 
+             const newClass = { ...classInfo, schoolId: currentUser?.schoolId || '' };
+             StorageService.addRegisteredClass(newClass); 
+             setRegisteredClasses(prev => [...prev, newClass]); 
+             showToast(`${classInfo.name}이(가) 생성되었습니다!`, "success"); 
+             setScreen(Screen.TEACHER_CLASSES); 
+             setActiveTab('classes'); 
+         }} />;
       
       case Screen.DEMO_VIDEO:
         return <DemoVideoScreen classItem={selectedClass} onBack={() => setScreen(Screen.TEACHER_CLASSES)} onFinish={() => setScreen(Screen.COMMENT_PRACTICE)} />;
@@ -1018,9 +1012,9 @@ const App: React.FC = () => {
               const earnedPoints = score === 3 ? 100 : score === 2 ? 50 : 10;
               const date = new Date().toLocaleDateString();
 
-              // Add to activities (history)
               const newActivity: any = {
                   id: Date.now().toString(),
+                  schoolId: currentUser?.schoolId,
                   title: `${selectedClass?.title || '강의'} 학습 완료`,
                   date: date,
                   score: 100,
@@ -1033,8 +1027,6 @@ const App: React.FC = () => {
               setMyActivities(updated);
               setAllActivities(prev => [newActivity, ...prev]);
               StorageService.addActivity(newActivity); 
-
-              // Update Points
               setTotalPoints(prev => prev + earnedPoints);
               setMyPointHistory(prev => [{
                 id: Date.now(),
@@ -1079,17 +1071,15 @@ const App: React.FC = () => {
               const challengeTitle = selectedChallenge ? selectedChallenge.title : "챌린지 인증";
               const date = new Date().toLocaleDateString();
               
-              // 1. Calculate Progress
               const previousCount = myActivities.filter(a => a.title === challengeTitle && a.type === '도전').length;
               const currentCount = previousCount + 1;
-              
               const durationStr = selectedChallenge?.duration || '1주일';
               const targetCount = getChallengeDurationDays(durationStr);
               const isCompletedNow = currentCount >= targetCount;
 
-              // 2. Add Activity (History)
               const newActivity: any = {
                 id: Date.now().toString(),
+                schoolId: currentUser?.schoolId,
                 title: challengeTitle,
                 date: date,
                 score: 100,
@@ -1104,7 +1094,6 @@ const App: React.FC = () => {
               setAllActivities(prev => [newActivity, ...prev]);
               StorageService.addActivity(newActivity);
 
-              // 3. Logic for Points & Badge
               let earnedPoints = 0;
               let earnedMessage = "";
 
@@ -1122,13 +1111,11 @@ const App: React.FC = () => {
                  if (!myBadges.some(b => b.name === newBadge.name)) {
                      setMyBadges(prev => [newBadge, ...prev]);
                  }
-
               } else {
                  earnedPoints = 10;
                  earnedMessage = `${currentCount}일차 인증에 성공했습니다! (${targetCount}일 완주 도전 중)`;
               }
 
-              // Update Points
               setTotalPoints(prev => prev + earnedPoints);
               setMyPointHistory(prev => [{
                 id: Date.now(),
@@ -1183,18 +1170,33 @@ const App: React.FC = () => {
           />
         );
 
-      // Teacher Flows
       case Screen.TEACHER_CLASSES:
         return <TeacherClassListScreen 
           classes={classes} 
           onUpload={() => setScreen(Screen.UPLOAD_CLASS)} 
           onLogout={handleLogout} 
           onDelete={handleDeleteClass} 
-          onAdmin={() => setScreen(Screen.ADMIN_MANAGE_USERS)} // Admin Button Action
+          onAdmin={() => setScreen(Screen.ADMIN_MANAGE_USERS)} 
+          currentUser={currentUser}
         />;
 
       case Screen.UPLOAD_CLASS:
-        return <UploadClassScreen onSubmit={(data) => { const newClass: any = { id: Date.now().toString(), title: data.title, date: new Date().toLocaleDateString(), type: data.type, description: '선생님이 업로드한 갓생강의입니다.', url: data.url, thumbnail: data.thumbnail }; setClasses([newClass, ...classes]); StorageService.addClass(newClass); showToast("갓생강의가 업로드되었습니다.", "success"); setScreen(Screen.TEACHER_CLASSES); }} onCancel={() => setScreen(Screen.TEACHER_CLASSES)} />;
+        return <UploadClassScreen onSubmit={(data) => { 
+            const newClass: any = { 
+                id: Date.now().toString(), 
+                schoolId: currentUser?.schoolId,
+                title: data.title, 
+                date: new Date().toLocaleDateString(), 
+                type: data.type, 
+                description: '선생님이 업로드한 갓생강의입니다.', 
+                url: data.url, 
+                thumbnail: data.thumbnail 
+            }; 
+            setClasses([newClass, ...classes]); 
+            StorageService.addClass(newClass); 
+            showToast("갓생강의가 업로드되었습니다.", "success"); 
+            setScreen(Screen.TEACHER_CLASSES); 
+        }} onCancel={() => setScreen(Screen.TEACHER_CLASSES)} />;
 
       case Screen.TEACHER_CHALLENGES:
         return <TeacherChallengeListScreen challenges={challenges} onCreate={() => setScreen(Screen.CREATE_CHALLENGE)} onLogout={handleLogout} onDelete={handleDeleteChallenge} />;
@@ -1205,6 +1207,7 @@ const App: React.FC = () => {
             onSubmit={(data) => {
               const newChallenge: any = {
                 id: Date.now().toString(),
+                schoolId: currentUser?.schoolId,
                 title: data.title,
                 status: 'active',
                 participants: 0,
@@ -1231,12 +1234,14 @@ const App: React.FC = () => {
                  onLogout={handleLogout} 
                />;
       
-      // Admin Screen Route
       case Screen.ADMIN_MANAGE_USERS:
         return <AdminManageUsersScreen 
             onBack={() => setScreen(Screen.TEACHER_CLASSES)} 
             currentUser={currentUser}
         />;
+    
+      case Screen.BULK_UPLOAD:
+        return <BulkUploadScreen onBack={() => setScreen(Screen.ACCOUNT_SELECTION)} />;
 
       default:
         return <WelcomeScreen onNext={() => setScreen(Screen.LOGIN)} />;
@@ -1244,7 +1249,6 @@ const App: React.FC = () => {
   };
 
   const renderCurrentView = () => {
-    // If student on teacher classes screen (default landing), show student list instead
     if (currentUser?.role !== UserType.TEACHER && currentUser?.role !== UserType.GUEST && screen === Screen.TEACHER_CLASSES) {
       return (
         <StudentClassListScreen
@@ -1263,7 +1267,7 @@ const App: React.FC = () => {
 
   const isTeacherMainScreen = [Screen.TEACHER_CLASSES, Screen.TEACHER_CHALLENGES, Screen.TEACHER_DASHBOARD].includes(screen);
   const isStudentMainScreen = [Screen.GROWTH_RECORD, Screen.CHALLENGE_INVITE, Screen.TEACHER_CLASSES].includes(screen);
-  const showBottomNav = (isTeacherMainScreen || isStudentMainScreen) && currentUser?.role !== UserType.GUEST && currentUser !== null && screen !== Screen.ADMIN_MANAGE_USERS;
+  const showBottomNav = (isTeacherMainScreen || isStudentMainScreen) && currentUser?.role !== UserType.GUEST && currentUser !== null && screen !== Screen.ADMIN_MANAGE_USERS && screen !== Screen.BULK_UPLOAD;
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-[#f5f5f5] font-sans text-text-main">

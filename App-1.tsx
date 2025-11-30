@@ -1300,9 +1300,10 @@ const App: React.FC = () => {
         return (
           <CreateClassScreen
             onSubmit={(classInfo) => {
-              setMyClass(classInfo);
-              StorageService.addRegisteredClass(classInfo);
-              setRegisteredClasses(prev => [...prev, classInfo]);
+              const newClass = { ...classInfo, schoolId: currentUser?.schoolId || '갓생고등학교' };
+              setMyClass(newClass);
+              StorageService.addRegisteredClass(newClass);
+              setRegisteredClasses(prev => [...prev, newClass]);
               showToast(`${classInfo.name}이(가) 생성되었습니다!`, "success");
               setScreen(Screen.TEACHER_CLASSES);
               setActiveTab('classes');

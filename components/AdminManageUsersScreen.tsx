@@ -23,7 +23,7 @@ export const AdminManageUsersScreen: React.FC<AdminManageUsersScreenProps> = ({ 
   }, []);
 
   const loadUsers = () => {
-    setUsers(StorageService.getUsers());
+    setUsers(StorageService.getUsers(currentUser));
   };
 
   const handleDeleteUser = (id: string | number) => {
@@ -63,6 +63,7 @@ export const AdminManageUsersScreen: React.FC<AdminManageUsersScreenProps> = ({ 
 
       const newUser: User = {
         id: `bulk-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 5)}`,
+        schoolId: currentUser?.schoolId || 'default-school', // Assign current admin's school
         name: name,
         password: password,
         role: uploadRole,
@@ -108,7 +109,7 @@ export const AdminManageUsersScreen: React.FC<AdminManageUsersScreenProps> = ({ 
             <button onClick={onBack} className="p-1 -ml-1 text-muted-text hover:text-text-main">
             <ChevronLeft size={24} />
             </button>
-            <h1 className="text-[20px] font-bold text-text-main">사용자 관리 (관리자)</h1>
+            <h1 className="text-[20px] font-bold text-text-main">사용자 관리 ({currentUser?.schoolId})</h1>
         </div>
       </div>
 

@@ -13,6 +13,7 @@ interface RegisterScreenProps {
 
 export const RegisterScreen: React.FC<RegisterScreenProps> = ({ userType, onRegisterSuccess, onSwitchToLogin }) => {
   const [formData, setFormData] = useState({
+    schoolId: '',
     password: '',
     name: '',
     studentNumber: '', // Student only
@@ -28,6 +29,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ userType, onRegi
     setTimeout(() => {
       const newUser: User = {
         id: Date.now().toString(),
+        schoolId: formData.schoolId,
         password: formData.password,
         name: formData.name,
         role: userType,
@@ -43,14 +45,14 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ userType, onRegi
       if (success) {
         onRegisterSuccess(newUser);
       } else {
-        setError(userType === UserType.STUDENT ? '이미 등록된 학번입니다.' : '이미 등록된 교사 이름입니다.');
+        setError('이미 해당 학교에 등록된 사용자 정보입니다.');
         setIsLoading(false);
       }
     }, 1000);
   };
 
   const isValid = () => {
-    if (!formData.password || !formData.name) return false;
+    if (!formData.schoolId || !formData.password || !formData.name) return false;
     if (userType === UserType.STUDENT && !formData.studentNumber) return false;
     return true;
   };
@@ -67,6 +69,18 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ userType, onRegi
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
+        {/* School Name */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-text-main">학교명</label>
+          <input
+            type="text"
+            value={formData.schoolId}
+            onChange={e => setFormData({...formData, schoolId: e.target.value})}
+            className="w-full h-[52px] px-4 border border-card-border rounded-[12px] focus:outline-none focus:border-primary"
+            placeholder="학교 이름을 입력하세요"
+          />
+        </div>
+
         {/* Common Fields */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-text-main">이름</label>
