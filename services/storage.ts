@@ -99,7 +99,8 @@ export const StorageService = {
 
   removeUser: (id: string) => {
     const users = StorageService.getUsers();
-    const newUsers = users.filter(u => u.id !== id);
+    // Convert to string for robust comparison (handles number IDs)
+    const newUsers = users.filter(u => String(u.id) !== String(id));
     localStorage.setItem(KEYS.USERS, JSON.stringify(newUsers));
   },
 

@@ -26,13 +26,12 @@ export const AdminManageUsersScreen: React.FC<AdminManageUsersScreenProps> = ({ 
     setUsers(StorageService.getUsers());
   };
 
-  const handleDeleteUser = (id: string) => {
-    if (window.confirm('정말 삭제하시겠습니까? 복구할 수 없습니다.')) {
-      StorageService.removeUser(id);
-      loadUsers();
-      setMessage({ text: '사용자가 삭제되었습니다.', type: 'success' });
-      setTimeout(() => setMessage(null), 3000);
-    }
+  const handleDeleteUser = (id: string | number) => {
+    // Removed window.confirm due to potential blocking issues in some environments
+    StorageService.removeUser(String(id));
+    loadUsers();
+    setMessage({ text: '사용자가 삭제되었습니다.', type: 'success' });
+    setTimeout(() => setMessage(null), 3000);
   };
 
   // --- Bulk Upload Logic ---
