@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { Screen, UserType, User } from './types';
 import { Button } from './components/Button';
 import { Toast } from './components/Toast';
@@ -776,7 +777,7 @@ const TeacherDashboardScreen = ({
     <div className="flex flex-col h-full bg-secondary-bg">
       <div className="bg-white p-6 shadow-sm z-10 sticky top-0">
         <div className="flex justify-between items-start mb-2">
-          <h1 className="text-[24px] font-bold text-text-main">성장케어 (검토 대기 제출물)</h1>
+          <h1 className="text-[24px] font-bold text-text-main">갓생케어 (검토 대기 제출물)</h1>
           <button onClick={onLogout} className="text-muted-text hover:text-primary transition-colors p-1" aria-label="로그아웃">
             <LogOut size={20} />
           </button>
@@ -849,8 +850,6 @@ const TeacherDashboardScreen = ({
     </div>
   );
 };
-// ... TeacherClassList, UploadClass, TeacherChallenge, CreateChallenge ...
-// (Reusing existing TeacherClassListScreen, UploadClassScreen, TeacherChallengeListScreen, CreateChallengeScreen from previous context - assuming no changes needed there unless specified, I will include abbreviated versions to keep file complete if needed, but for XML patch I will focus on main App flow)
 
 // 11. Teacher Class List Screen
 const TeacherClassListScreen = ({ onUpload, classes, onLogout, onDelete }: { onUpload: () => void, classes: any[], onLogout: () => void, onDelete: (id: string) => void }) => {
@@ -901,13 +900,15 @@ const TeacherClassListScreen = ({ onUpload, classes, onLogout, onDelete }: { onU
   );
 };
 
-// 12. Upload Class Screen (Same as before)
+// 12. Upload Class Screen (Updated with file input fix)
 const UploadClassScreen = ({ onSubmit, onCancel }: { onSubmit: (data: { title: string, type: 'video' | 'link', url?: string, thumbnail?: string }) => void, onCancel: () => void }) => {
   const [title, setTitle] = useState('');
   const [uploadType, setUploadType] = useState<'file' | 'link'>('file');
   const [url, setUrl] = useState('');
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
+  const [selectedFileName, setSelectedFileName] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleGenerateThumbnail = async () => {
     if (!title) return;
@@ -917,6 +918,18 @@ const UploadClassScreen = ({ onSubmit, onCancel }: { onSubmit: (data: { title: s
       setThumbnail(generatedImage);
     }
     setIsGeneratingThumbnail(false);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+       const file = e.target.files[0];
+       setSelectedFileName(file.name);
+       // Create a blob URL to simulate upload for demo
+       const objectUrl = URL.createObjectURL(file);
+       setUrl(objectUrl);
+       // Auto-fill title if empty
+       if (!title) setTitle(file.name.replace(/\.[^/.]+$/, ""));
+    }
   };
   
   return (
@@ -963,10 +976,23 @@ const UploadClassScreen = ({ onSubmit, onCancel }: { onSubmit: (data: { title: s
         </div>
 
         {uploadType === 'file' ? (
-           <div className="border-2 border-dashed border-card-border rounded-[12px] bg-secondary-bg/30 h-[120px] flex flex-col items-center justify-center text-muted-text">
-             <Video size={32} className="mb-2 opacity-50" />
-             <span className="text-sm">클릭하여 영상 파일 선택</span>
-           </div>
+           <>
+             <input 
+               type="file" 
+               ref={fileInputRef} 
+               className="hidden" 
+               accept="video/*" 
+               onChange={handleFileChange} 
+             />
+             <div 
+               onClick={() => fileInputRef.current?.click()}
+               className="border-2 border-dashed border-card-border rounded-[12px] bg-secondary-bg/30 h-[120px] flex flex-col items-center justify-center text-muted-text cursor-pointer hover:bg-secondary-bg/50 transition-colors"
+             >
+               <Video size={32} className="mb-2 opacity-50" />
+               <span className="text-sm font-medium">{selectedFileName || "클릭하여 영상 파일 선택"}</span>
+               {selectedFileName && <span className="text-xs text-primary mt-1">파일이 선택되었습니다</span>}
+             </div>
+           </>
         ) : (
           <div className="space-y-2">
             <label className="text-sm font-medium text-text-main">링크 주소</label>
@@ -1029,7 +1055,7 @@ const UploadClassScreen = ({ onSubmit, onCancel }: { onSubmit: (data: { title: s
         <Button className="flex-1" onClick={() => onSubmit({
           title: title || "새로운 강의",
           type: uploadType,
-          url: uploadType === 'link' ? url : '',
+          url: url, // Use the state URL (from input or file blob)
           thumbnail: thumbnail || undefined
         })}>
           업로드
@@ -1040,7 +1066,7 @@ const UploadClassScreen = ({ onSubmit, onCancel }: { onSubmit: (data: { title: s
 };
 
 // 13. Teacher Challenge List & 14. Create Challenge Screen (Include as before)
-const TeacherChallengeListScreen = ({ onCreate, challenges, onLogout }: { onCreate: () => void, challenges: any[], onLogout: () => void }) => {
+const TeacherChallengeListScreen = ({ onCreate, challenges, onLogout, onDelete }: { onCreate: () => void, challenges: any[], onLogout: () => void, onDelete: (id: string) => void }) => {
   return (
     <div className="flex flex-col h-full bg-white">
       <div className="p-6 pb-4 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
@@ -1061,8 +1087,15 @@ const TeacherChallengeListScreen = ({ onCreate, challenges, onLogout }: { onCrea
           <div className="text-center py-8 text-muted-text text-sm">생성된 갓생도전이 없습니다.</div>
         ) : (
           challenges.map(c => (
-            <div key={c.id} className="p-4 border border-card-border rounded-[12px] shadow-sm bg-white">
-              <div className="flex justify-between items-start mb-2">
+            <div key={c.id} className="p-4 border border-card-border rounded-[12px] shadow-sm bg-white relative group">
+              <button 
+                onClick={(e) => { e.stopPropagation(); onDelete(c.id); }}
+                className="absolute top-3 right-3 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors z-20"
+                aria-label="챌린지 삭제"
+              >
+                <Trash2 size={18} />
+              </button>
+              <div className="flex justify-between items-start mb-2 pr-8">
                 <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
                   {c.status === 'active' ? '진행중' : '대기중'}
                 </span>
@@ -1340,6 +1373,12 @@ const App: React.FC = () => {
     showToast('강의가 삭제되었습니다.', 'success');
   };
 
+  const handleDeleteChallenge = (id: string) => {
+    StorageService.removeChallenge(id);
+    setChallenges(prev => prev.filter(c => c.id !== id));
+    showToast('갓생도전이 삭제되었습니다.', 'success');
+  };
+
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ show: true, message, type });
   };
@@ -1599,7 +1638,7 @@ const App: React.FC = () => {
         return <UploadClassScreen onSubmit={(data) => { const newClass: any = { id: Date.now().toString(), title: data.title, date: new Date().toLocaleDateString(), type: data.type, description: '선생님이 업로드한 갓생강의입니다.', url: data.url, thumbnail: data.thumbnail }; setClasses([newClass, ...classes]); StorageService.addClass(newClass); showToast("갓생강의가 업로드되었습니다.", "success"); setScreen(Screen.TEACHER_CLASSES); }} onCancel={() => setScreen(Screen.TEACHER_CLASSES)} />;
 
       case Screen.TEACHER_CHALLENGES:
-        return <TeacherChallengeListScreen challenges={challenges} onCreate={() => setScreen(Screen.CREATE_CHALLENGE)} onLogout={handleLogout} />;
+        return <TeacherChallengeListScreen challenges={challenges} onCreate={() => setScreen(Screen.CREATE_CHALLENGE)} onLogout={handleLogout} onDelete={handleDeleteChallenge} />;
 
       case Screen.CREATE_CHALLENGE:
         return (

@@ -132,6 +132,12 @@ export const StorageService = {
     localStorage.setItem(KEYS.CHALLENGES, JSON.stringify([item, ...items]));
   },
 
+  removeChallenge: (id: string) => {
+    const items = StorageService.getChallenges();
+    const newItems = items.filter(c => String(c.id) !== String(id));
+    localStorage.setItem(KEYS.CHALLENGES, JSON.stringify(newItems));
+  },
+
   getActivities: (): ActivityItem[] => {
     const data = localStorage.getItem(KEYS.ACTIVITIES);
     return data ? JSON.parse(data) : [];

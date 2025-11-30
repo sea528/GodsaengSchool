@@ -38,7 +38,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentScreen, userType, o
         >
           {/* Defaulting to Chart icon for growth tab if userType is unknown in this mode, or stick to generic logic */}
           <LineChart size={24} strokeWidth={activeTab === 'growth' ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">성장케어</span>
+          <span className="text-[10px] font-medium">갓생케어</span>
         </button>
       </div>
     );
@@ -82,7 +82,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentScreen, userType, o
         className={`flex flex-col items-center gap-1 transition-colors ${derivedActiveTab === 'growth' ? 'text-primary' : 'text-gray-400 hover:text-gray-600'}`}
       >
         {isTeacher ? <UserIcon size={24} strokeWidth={derivedActiveTab === 'growth' ? 2.5 : 2} /> : <LineChart size={24} strokeWidth={derivedActiveTab === 'growth' ? 2.5 : 2} />}
-        <span className="text-[10px] font-medium">{isTeacher ? '성장케어' : '갓성장'}</span>
+        <span className="text-[10px] font-medium">{isTeacher ? '갓생케어' : '갓성장'}</span>
       </button>
     </div>
   );
