@@ -7,8 +7,25 @@ import { BottomNav } from './components/BottomNav';
 import { LoginScreen } from './components/LoginScreen';
 import { RegisterScreen } from './components/RegisterScreen';
 import { StorageService } from './services/storage';
-import { generateClassThumbnail } from './services/geminiService';
+import { generateClassThumbnail, analyzeComment, verifyChallengeImage } from './services/geminiService';
 import { Play, Pause, RotateCcw, Upload, Camera, FileText, ChevronRight, CheckCircle, Clock, AlertTriangle, Target, AlertCircle, Plus, Video, Image, Film, File, FileSpreadsheet, Coins, Award, Loader2, Sparkles, Users, BookOpen, Link as LinkIcon, LogOut, Filter, ExternalLink, Copy, RefreshCw, ChevronDown, PlayCircle } from 'lucide-react';
+
+// --- Helper Functions ---
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+};
+
+const getChallengeDurationDays = (durationStr: string): number => {
+  if (durationStr.includes('1주일')) return 7;
+  if (durationStr.includes('2주일')) return 14;
+  if (durationStr.includes('한달')) return 30;
+  return 7; // Default
+};
 
 // --- Screens Components ---
 
@@ -152,7 +169,7 @@ const CreateClassScreen = ({ onSubmit }: { onSubmit: (classInfo: { name: string,
   );
 };
 
-// 4. Student Class List Screen (New)
+// 4. Student Class List Screen
 const StudentClassListScreen = ({ classes, onSelectClass, onLogout, studentClassInfo }: { classes: any[], onSelectClass: (item: any) => void, onLogout: () => void, studentClassInfo?: any | null }) => {
   return (
     <div className="flex flex-col h-full bg-white">
@@ -211,7 +228,7 @@ const StudentClassListScreen = ({ classes, onSelectClass, onLogout, studentClass
   );
 };
 
-// 4.1 Demo Video Screen (Student View - Player)
+// 4.1 Demo Video Screen
 const DemoVideoScreen = ({ classItem, onFinish, onBack }: { classItem: any | null, onFinish: () => void, onBack: () => void }) => {
   const [videoError, setVideoError] = useState(false);
   
@@ -220,19 +237,15 @@ const DemoVideoScreen = ({ classItem, onFinish, onBack }: { classItem: any | nul
 
   const openExternalLink = () => {
     if (classItem?.url) {
-      // Open in a new tab - this triggers native app (deep linking) on mobile 
-      // or new browser tab on computer, avoiding embedded player errors.
       window.open(classItem.url, '_blank');
     }
   };
 
-  // Helper to determine if it's a direct file we can play in <video>
   const isDirectVideoFile = () => {
     return classItem?.type === 'video';
   };
 
   const renderPlayer = () => {
-      // 1. Direct Video File (Uploaded) -> Use Browser's Native HTML5 Player
       if (isDirectVideoFile()) {
         return (
           <video
@@ -245,8 +258,6 @@ const DemoVideoScreen = ({ classItem, onFinish, onBack }: { classItem: any | nul
         );
       }
       
-      // 2. YouTube or External Link -> Show Cover & Open Externally
-      // This solves "Error 153" and ensures native app usage on mobile.
       return (
         <div 
           onClick={openExternalLink}
@@ -312,25 +323,22 @@ const CommentPracticeScreen = ({ onSubmit }: { onSubmit: (score: number, message
   const [comment, setComment] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleCommentSubmit = () => {
+  const handleCommentSubmit = async () => {
     setIsAnalyzing(true);
-    setTimeout(() => {
-      setIsAnalyzing(false);
-      const length = comment.length;
-      let score = 0;
-      let message = "";
-      if (length === 0) {
-        score = 1;
-        message = "AI 분석 완료: 빈 내용입니다. (1점)";
-      } else if (length < 20) {
-        score = 2;
-        message = "AI 분석 완료: 내용이 조금 짧네요. (2점)";
-      } else {
-        score = 3;
-        message = "AI 분석 완료: 핵심을 잘 파악했습니다! (3점)";
-      }
-      onSubmit(score, message);
-    }, 2000);
+    
+    // Use real Gemini API
+    const result = await analyzeComment(comment);
+    
+    setIsAnalyzing(false);
+
+    let message = "";
+    if (!result.isValid) {
+        message = `AI 분석: ${result.reason || "내용이 부적절하거나 너무 짧습니다."} (1점)`;
+        onSubmit(1, message);
+    } else {
+        message = `AI 분석: ${result.reason || "좋은 생각입니다!"} (${result.score}점)`;
+        onSubmit(result.score, message);
+    }
   };
 
   return (
@@ -363,7 +371,7 @@ const CommentPracticeScreen = ({ onSubmit }: { onSubmit: (score: number, message
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           disabled={isAnalyzing}
-          placeholder="20자 이상 작성 시 3점을 획득합니다."
+          placeholder="20자 이상 작성 시 AI가 분석하여 점수를 부여합니다."
           className="w-full h-[120px] p-4 border border-[#E0E6F0] rounded-[8px] resize-none focus:outline-none focus:border-primary text-[15px] disabled:bg-gray-50"
           maxLength={100}
         />
@@ -420,7 +428,7 @@ const StudentChallengeListScreen = ({ challenges, onStart, onLogout }: { challen
               </div>
               <div className="p-5">
                 <div className="flex gap-2 mb-2">
-                  <span className="bg-reward-badge/20 text-orange-700 px-2 py-0.5 rounded text-[12px] font-bold">1주 갓생도전</span>
+                  <span className="bg-reward-badge/20 text-orange-700 px-2 py-0.5 rounded text-[12px] font-bold">{challenge.duration || '1주일'} 도전</span>
                   {challenge.status === 'active' && <span className="bg-blue-100 text-primary px-2 py-0.5 rounded text-[12px] font-bold">진행중</span>}
                 </div>
                 <h2 className="text-[18px] font-bold mb-2">{challenge.title}</h2>
@@ -442,12 +450,39 @@ const StudentChallengeListScreen = ({ challenges, onStart, onLogout }: { challen
 };
 
 // 7. Verification Upload Screen
-const VerificationUploadScreen = ({ onSubmit }: { onSubmit: () => void }) => {
+const VerificationUploadScreen = ({ challengeTitle, onSubmit, onFail }: { challengeTitle: string, onSubmit: (valid: boolean) => void, onFail: (reason: string) => void }) => {
   const [file, setFile] = useState<File | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
+      setErrorMsg(null);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!file) return;
+    setIsVerifying(true);
+    setErrorMsg(null);
+
+    try {
+      const base64 = await fileToBase64(file);
+      // Call strict AI verification
+      const result = await verifyChallengeImage(base64, challengeTitle);
+
+      if (result.isValid) {
+        onSubmit(true);
+      } else {
+        // AI 반려 시 onFail 호출
+        onFail(result.reason || "챌린지와 무관한 사진입니다.");
+      }
+    } catch (e) {
+      console.error(e);
+      setErrorMsg("검증 중 오류가 발생했습니다.");
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -455,17 +490,18 @@ const VerificationUploadScreen = ({ onSubmit }: { onSubmit: () => void }) => {
     <div className="flex flex-col h-full p-6 bg-white">
       <h1 className="text-[28px] font-bold text-text-main mb-2">인증 자료 업로드</h1>
       <p className="text-[15px] text-muted-text mb-8">
-        갓생도전 완료를 위해 인증 사진을 올려주세요.
+        갓생도전: <span className="font-bold text-primary">{challengeTitle}</span><br/>
+        AI가 관련성을 정밀하게 분석합니다.
       </p>
 
       <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-card-border rounded-[12px] bg-secondary-bg/30 relative">
         {file ? (
           <div className="w-full h-full p-4 flex flex-col items-center justify-center">
             <div className="w-full h-48 bg-gray-200 rounded-[8px] mb-4 flex items-center justify-center overflow-hidden relative">
-              <FileText size={48} className="text-muted-text" />
+              <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-contain" />
             </div>
             <p className="text-sm font-medium">{file.name}</p>
-            <button onClick={() => setFile(null)} className="text-red-500 text-sm mt-2 underline">제거</button>
+            <button onClick={() => { setFile(null); setErrorMsg(null); }} className="text-red-500 text-sm mt-2 underline">제거</button>
           </div>
         ) : (
           <div className="text-center">
@@ -486,27 +522,41 @@ const VerificationUploadScreen = ({ onSubmit }: { onSubmit: () => void }) => {
         )}
       </div>
 
+      {errorMsg && (
+        <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-[8px] flex items-center gap-2 text-sm font-bold animate-pulse">
+           <AlertCircle size={16} /> {errorMsg}
+        </div>
+      )}
+
       <div className="mt-6">
-        <Button fullWidth onClick={onSubmit} disabled={!file} className={!file ? 'opacity-50 cursor-not-allowed' : ''}>
-          제출하기
+        <Button fullWidth onClick={handleSubmit} disabled={!file || isVerifying} className={!file ? 'opacity-50 cursor-not-allowed' : ''}>
+          {isVerifying ? (
+             <span className="flex items-center gap-2"><Loader2 className="animate-spin" /> AI 정밀 분석 중...</span>
+          ) : "제출하기"}
         </Button>
       </div>
     </div>
   );
 };
 
-// 8. Reward Screen
-const RewardScreen = ({ onViewGrowth, onChallengeMore }: { onViewGrowth: () => void, onChallengeMore: () => void }) => {
+// 8. Reward Screen (Updated for Partial/Full Reward)
+const RewardScreen = ({ message, points, isComplete, onViewGrowth, onChallengeMore }: { message: string, points: number, isComplete: boolean, onViewGrowth: () => void, onChallengeMore: () => void }) => {
   return (
     <div className="flex flex-col h-full p-6 bg-white text-center justify-center">
-      <div className="w-24 h-24 bg-success-bg rounded-full flex items-center justify-center mx-auto mb-6">
-        <CheckCircle size={48} className="text-success-text" />
+      <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 ${isComplete ? 'bg-reward-badge text-white' : 'bg-success-bg text-success-text'}`}>
+        {isComplete ? <Award size={48} /> : <CheckCircle size={48} />}
       </div>
 
-      <h1 className="text-[24px] font-bold text-text-main mb-2">인증 완료!</h1>
+      <h1 className="text-[24px] font-bold text-text-main mb-2">{isComplete ? "갓생도전 완주!" : "오늘의 인증 완료"}</h1>
       <p className="text-[15px] text-muted-text mb-8">
-        포인트와 배지가 지급되었습니다.
+        {message}
       </p>
+
+      <div className="bg-secondary-bg p-6 rounded-[12px] mb-8">
+         <p className="text-sm text-muted-text mb-1">지급된 포인트</p>
+         <p className="text-3xl font-bold text-primary">+{points} P</p>
+         {isComplete && <p className="text-sm font-bold text-orange-500 mt-2">✨ 배지 획득! ✨</p>}
+      </div>
 
       <div className="flex flex-col gap-3">
         <Button fullWidth onClick={onViewGrowth}>갓성장 확인하기</Button>
@@ -516,7 +566,7 @@ const RewardScreen = ({ onViewGrowth, onChallengeMore }: { onViewGrowth: () => v
   );
 };
 
-// 9. Growth Record Screen (God Growth)
+// 9. Growth Record Screen... (No major changes needed here, just display logic)
 const GrowthRecordScreen = ({
   userType,
   onLogout,
@@ -543,7 +593,7 @@ const GrowthRecordScreen = ({
             <div className="grid grid-cols-3 gap-4">
               {badges.length === 0 ? (
                 <div className="col-span-3 text-center py-10 text-muted-text text-sm">
-                  아직 획득한 배지가 없습니다.<br/>갓생도전을 완료해보세요!
+                  아직 획득한 배지가 없습니다.<br/>갓생도전을 완주해보세요!
                 </div>
               ) : (
                 badges.map((badge) => (
@@ -604,6 +654,7 @@ const GrowthRecordScreen = ({
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <span className="px-2 py-1 rounded-[4px] bg-[#E6F4EA] text-[#1B5E20] text-[11px] font-bold">완료됨</span>
+                    {item.progressInfo && <span className="text-[11px] text-blue-600 font-medium">{item.progressInfo}</span>}
                   </div>
                 </div>
               ))
@@ -653,6 +704,7 @@ const GrowthRecordScreen = ({
   );
 };
 
+// ... (Teacher screens remain largely same) ...
 // 10. Teacher Dashboard
 const TeacherDashboardScreen = ({ 
   myClass, 
@@ -713,7 +765,7 @@ const TeacherDashboardScreen = ({
                     <span className="text-[13px] text-muted-text">{item.date}</span>
                   </div>
                   <p className="text-[14px] text-text-main font-bold">{item.title}</p>
-                  <p className="text-[12px] text-muted-text mt-1">{item.type || '활동'}</p>
+                  <p className="text-[12px] text-muted-text mt-1">{item.type || '활동'} {item.progressInfo ? `(${item.progressInfo})` : ''}</p>
                 </div>
                 <div className="flex flex-col items-end">
                   <span className={`px-2 py-1 rounded-[4px] text-[11px] font-bold ${
@@ -742,6 +794,8 @@ const TeacherDashboardScreen = ({
     </div>
   );
 };
+// ... TeacherClassList, UploadClass, TeacherChallenge, CreateChallenge ...
+// (Reusing existing TeacherClassListScreen, UploadClassScreen, TeacherChallengeListScreen, CreateChallengeScreen from previous context - assuming no changes needed there unless specified, I will include abbreviated versions to keep file complete if needed, but for XML patch I will focus on main App flow)
 
 // 11. Teacher Class List Screen
 const TeacherClassListScreen = ({ onUpload, classes, onLogout }: { onUpload: () => void, classes: any[], onLogout: () => void }) => {
@@ -785,7 +839,7 @@ const TeacherClassListScreen = ({ onUpload, classes, onLogout }: { onUpload: () 
   );
 };
 
-// 12. Upload Class Screen
+// 12. Upload Class Screen (Same as before)
 const UploadClassScreen = ({ onSubmit, onCancel }: { onSubmit: (data: { title: string, type: 'video' | 'link', url?: string, thumbnail?: string }) => void, onCancel: () => void }) => {
   const [title, setTitle] = useState('');
   const [uploadType, setUploadType] = useState<'file' | 'link'>('file');
@@ -819,7 +873,7 @@ const UploadClassScreen = ({ onSubmit, onCancel }: { onSubmit: (data: { title: s
             className="w-full h-[44px] px-3 border border-card-border rounded-[8px] outline-none focus:border-primary"
           />
         </div>
-
+        {/* ... (Rest of UploadClassScreen UI) ... */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-text-main">업로드 방식</label>
           <div className="flex gap-2 p-1 bg-secondary-bg rounded-[12px]">
@@ -923,7 +977,7 @@ const UploadClassScreen = ({ onSubmit, onCancel }: { onSubmit: (data: { title: s
   );
 };
 
-// 13. Teacher Challenge List Screen
+// 13. Teacher Challenge List & 14. Create Challenge Screen (Include as before)
 const TeacherChallengeListScreen = ({ onCreate, challenges, onLogout }: { onCreate: () => void, challenges: any[], onLogout: () => void }) => {
   return (
     <div className="flex flex-col h-full bg-white">
@@ -966,7 +1020,6 @@ const TeacherChallengeListScreen = ({ onCreate, challenges, onLogout }: { onCrea
   );
 };
 
-// 14. Create Challenge Screen
 const CreateChallengeScreen = ({ onSubmit, onCancel }: { onSubmit: (data: any) => void, onCancel: () => void }) => {
   const [title, setTitle] = useState('');
   const [duration, setDuration] = useState('1주일');
@@ -1008,8 +1061,8 @@ const CreateChallengeScreen = ({ onSubmit, onCancel }: { onSubmit: (data: any) =
             className="w-full h-[48px] px-4 border border-card-border rounded-[8px] outline-none focus:border-primary bg-white text-[15px]"
           />
         </div>
-
-        {/* Duration & Target Grade */}
+        
+        {/* Simplified Duration & Target Grade */}
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-[14px] font-bold text-text-main">기간</label>
@@ -1022,7 +1075,6 @@ const CreateChallengeScreen = ({ onSubmit, onCancel }: { onSubmit: (data: any) =
                 <option>1주일</option>
                 <option>2주일</option>
                 <option>한달</option>
-                <option>학기 전체</option>
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-text pointer-events-none" size={18} />
             </div>
@@ -1039,9 +1091,6 @@ const CreateChallengeScreen = ({ onSubmit, onCancel }: { onSubmit: (data: any) =
                 <option>1학년</option>
                 <option>2학년</option>
                 <option>3학년</option>
-                <option>4학년</option>
-                <option>5학년</option>
-                <option>6학년</option>
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-text pointer-events-none" size={18} />
             </div>
@@ -1059,8 +1108,8 @@ const CreateChallengeScreen = ({ onSubmit, onCancel }: { onSubmit: (data: any) =
             className="w-full h-[48px] px-4 border border-card-border rounded-[8px] outline-none focus:border-primary bg-white text-[15px]"
           />
         </div>
-
-        {/* Verification Options */}
+        
+        {/* Verification Options - Hardcoded to photos for this demo request */}
         <div className="space-y-3">
           <label className="text-[14px] font-bold text-text-main">검증 옵션</label>
           <div className="flex gap-3">
@@ -1132,7 +1181,6 @@ const CreateChallengeScreen = ({ onSubmit, onCancel }: { onSubmit: (data: any) =
         </div>
       </div>
 
-      {/* Footer Buttons */}
       <div className="p-6 bg-white border-t border-gray-100 flex gap-3 mt-auto absolute bottom-0 left-0 right-0">
         <Button variant="secondary" className="flex-1 bg-secondary-bg hover:bg-gray-100 text-primary" onClick={onCancel}>
           임시 저장
@@ -1144,6 +1192,7 @@ const CreateChallengeScreen = ({ onSubmit, onCancel }: { onSubmit: (data: any) =
     </div>
   );
 };
+
 
 // --- Main App Component ---
 
@@ -1159,31 +1208,31 @@ const App: React.FC = () => {
   const [registerRole, setRegisterRole] = useState<UserType>(UserType.STUDENT);
 
   // Shared State
-  const [studentClassInfo, setStudentClassInfo] = useState<any | null>(null); // For student
+  const [studentClassInfo, setStudentClassInfo] = useState<any | null>(null);
   const [selectedClass, setSelectedClass] = useState<any | null>(null);
   const [selectedChallenge, setSelectedChallenge] = useState<any | null>(null);
 
-  // Data State
+  // Rewards logic
+  const [lastRewardInfo, setLastRewardInfo] = useState<{message: string, points: number, isComplete: boolean}>({
+    message: '', points: 0, isComplete: false
+  });
+
   const [registeredClasses, setRegisteredClasses] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [challenges, setChallenges] = useState<any[]>([]);
-
-  // Growth Record State (Student's own data)
   const [myActivities, setMyActivities] = useState<any[]>([]);
   const [myBadges, setMyBadges] = useState<any[]>([]);
   const [myPointHistory, setMyPointHistory] = useState<any[]>([]);
   const [totalPoints, setTotalPoints] = useState(0);
-  
-  // Teacher State
   const [classActivities, setClassActivities] = useState<any[]>([]);
+  const [allActivities, setAllActivities] = useState<any[]>([]);
 
   useEffect(() => {
-    // Initialize Data from Storage
     setRegisteredClasses(StorageService.getRegisteredClasses());
     setClasses(StorageService.getClasses());
     setChallenges(StorageService.getChallenges());
+    setAllActivities(StorageService.getActivities());
 
-    // Check for existing session
     const user = StorageService.getCurrentUser();
     if (user) {
       handleLoginSuccess(user);
@@ -1192,32 +1241,33 @@ const App: React.FC = () => {
 
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
-    
+    const all = StorageService.getActivities();
+    setAllActivities(all);
+
     if (user.role === UserType.STUDENT) {
-       // Ideally load from StorageService using user.id
        const userProfile = user.profile as any;
        if (userProfile && userProfile.points) {
          setTotalPoints(userProfile.points);
        }
-       // Load my activities
-       setMyActivities(StorageService.getActivities().filter(a => a.student === user.name).sort((a,b) => parseInt(b.id) - parseInt(a.id)));
+       setMyActivities(all.filter(a => a.student === user.name).sort((a,b) => parseInt(b.id) - parseInt(a.id)));
     }
 
     if (user.role === UserType.TEACHER) {
       setScreen(Screen.TEACHER_CLASSES);
-      // Load all activities for teacher to review
-      const allActivities = StorageService.getActivities();
-      setClassActivities(allActivities.sort((a,b) => parseInt(b.id) - parseInt(a.id))); 
+      setClassActivities(all.sort((a,b) => parseInt(b.id) - parseInt(a.id))); 
     } else {
-      setScreen(Screen.TEACHER_CLASSES); // Student also goes here initially
+      setScreen(Screen.TEACHER_CLASSES);
     }
   };
   
   const handleReviewAction = (id: string, status: 'trusted' | 'rejected') => {
     StorageService.updateActivityStatus(id, status);
-    setClassActivities(prev => prev.map(item => 
-      item.id === id ? { ...item, status } : item
-    ));
+    
+    // Update both local states to reflect changes immediately
+    const updater = (prev: any[]) => prev.map(item => item.id === id ? { ...item, status } : item);
+    setClassActivities(updater);
+    setAllActivities(updater);
+    
     showToast(`상태가 ${status === 'trusted' ? '승인' : '반려'}되었습니다.`, 'success');
   };
 
@@ -1235,7 +1285,6 @@ const App: React.FC = () => {
     setSelectedClass(null);
     setSelectedChallenge(null);
     setStudentClassInfo(null);
-    // Reset local data state
     setMyActivities([]);
     setMyBadges([]);
     setMyPointHistory([]);
@@ -1248,7 +1297,7 @@ const App: React.FC = () => {
   const renderScreen = () => {
     switch (screen) {
       case Screen.WELCOME:
-        return <WelcomeScreen onNext={() => setScreen(Screen.LOGIN)} />;
+        return <WelcomeScreen onNext={() => setScreen(Screen.LOGIN)} />; // Changed to Login per user request
 
       case Screen.ACCOUNT_SELECTION:
         return <AccountSelectionScreen onSelect={(type) => { setRegisterRole(type); setScreen(Screen.REGISTER); }} />;
@@ -1285,21 +1334,12 @@ const App: React.FC = () => {
             }}
           />
         );
-
+      
+      // ... Create Class, Student Class List, Demo Video, Comment Practice ...
+      // (Standard mapping as before, kept short for readability)
       case Screen.CREATE_CLASS:
-        return (
-          <CreateClassScreen
-            onSubmit={(classInfo) => {
-              StorageService.addRegisteredClass(classInfo);
-              setRegisteredClasses(prev => [...prev, classInfo]);
-              showToast(`${classInfo.name}이(가) 생성되었습니다!`, "success");
-              setScreen(Screen.TEACHER_CLASSES);
-              setActiveTab('classes');
-            }}
-          />
-        );
-
-      // Student Flows
+         return <CreateClassScreen onSubmit={(classInfo) => { StorageService.addRegisteredClass(classInfo); setRegisteredClasses(prev => [...prev, classInfo]); showToast(`${classInfo.name}이(가) 생성되었습니다!`, "success"); setScreen(Screen.TEACHER_CLASSES); setActiveTab('classes'); }} />;
+      
       case Screen.DEMO_VIDEO:
         return <DemoVideoScreen classItem={selectedClass} onBack={() => setScreen(Screen.TEACHER_CLASSES)} onFinish={() => setScreen(Screen.COMMENT_PRACTICE)} />;
 
@@ -1318,12 +1358,15 @@ const App: React.FC = () => {
                   title: `${selectedClass?.title || '강의'} 학습 완료`,
                   date: date,
                   score: 100,
-                  status: 'verified', // Initially verified by AI but needs teacher final check? Or auto trusted.
+                  status: 'verified', 
                   student: currentUser?.name || '나',
                   type: '강의'
               };
-              setMyActivities(prev => [newActivity, ...prev]);
-              StorageService.addActivity(newActivity); // Persist to storage for teacher to see
+              
+              const updated = [newActivity, ...myActivities];
+              setMyActivities(updated);
+              setAllActivities(prev => [newActivity, ...prev]);
+              StorageService.addActivity(newActivity); 
 
               // Update Points
               setTotalPoints(prev => prev + earnedPoints);
@@ -1361,11 +1404,25 @@ const App: React.FC = () => {
       case Screen.VERIFICATION_UPLOAD:
         return (
           <VerificationUploadScreen
+            challengeTitle={selectedChallenge?.title || "챌린지"}
+            onFail={(reason) => {
+               showToast(`인증 실패: ${reason}`, "error");
+               setTimeout(() => setScreen(Screen.CHALLENGE_INVITE), 2000);
+            }}
             onSubmit={() => {
               const challengeTitle = selectedChallenge ? selectedChallenge.title : "챌린지 인증";
               const date = new Date().toLocaleDateString();
+              
+              // 1. Calculate Progress
+              // Count previous verifications for this specific challenge by this user
+              const previousCount = myActivities.filter(a => a.title === challengeTitle && a.type === '도전').length;
+              const currentCount = previousCount + 1;
+              
+              const durationStr = selectedChallenge?.duration || '1주일';
+              const targetCount = getChallengeDurationDays(durationStr);
+              const isCompletedNow = currentCount >= targetCount;
 
-              // 1. Add Activity (History)
+              // 2. Add Activity (History)
               const newActivity: any = {
                 id: Date.now().toString(),
                 title: challengeTitle,
@@ -1373,51 +1430,63 @@ const App: React.FC = () => {
                 score: 100,
                 status: 'verified',
                 student: currentUser?.name || '나',
-                type: '도전'
+                type: '도전',
+                progressInfo: `${currentCount}일차 인증`
               };
-              setMyActivities(prev => [newActivity, ...prev]);
+              
+              const updatedActivities = [newActivity, ...myActivities];
+              setMyActivities(updatedActivities);
+              setAllActivities(prev => [newActivity, ...prev]);
               StorageService.addActivity(newActivity);
 
-              // 2. Add Points (Challenge Reward)
-              const pointsEarned = selectedChallenge ? parseInt(selectedChallenge.reward || "500") : 500;
-              setTotalPoints(prev => prev + pointsEarned);
+              // 3. Logic for Points & Badge
+              let earnedPoints = 0;
+              let earnedMessage = "";
+
+              if (isCompletedNow) {
+                 // Completion Reward
+                 const reward = selectedChallenge ? parseInt(selectedChallenge.reward || "500") : 500;
+                 earnedPoints = reward;
+                 earnedMessage = `축하합니다! ${durationStr} 챌린지를 완주했습니다.`;
+                 
+                 // Award Badge
+                 const newBadge: any = {
+                    id: Date.now(),
+                    name: selectedChallenge?.badgeName || '성취왕',
+                    icon: '👑', // Should come from challenge data ideally
+                    date: date
+                 };
+                 // Simple duplicate check
+                 if (!myBadges.some(b => b.name === newBadge.name)) {
+                     setMyBadges(prev => [newBadge, ...prev]);
+                 }
+
+              } else {
+                 // Daily Participation Reward
+                 earnedPoints = 10;
+                 earnedMessage = `${currentCount}일차 인증에 성공했습니다! (${targetCount}일 완주 도전 중)`;
+              }
+
+              // Update Points
+              setTotalPoints(prev => prev + earnedPoints);
               setMyPointHistory(prev => [{
                 id: Date.now(),
-                desc: `${challengeTitle} 성공`,
-                amount: pointsEarned,
+                desc: isCompletedNow ? `${challengeTitle} 완주 성공` : `${challengeTitle} 일일 인증`,
+                amount: earnedPoints,
                 date: date
               }, ...prev]);
 
               if (currentUser) {
-                StorageService.updateUserPoints(currentUser.name, pointsEarned);
+                StorageService.updateUserPoints(currentUser.name, earnedPoints);
               }
 
-              // 3. Add Badge (Logic: if title contains '독서', give Reading King badge)
-              if (challengeTitle.includes('독서')) {
-                  const newBadge: any = {
-                    id: Date.now(),
-                    name: '독서왕',
-                    icon: '👑',
-                    date: date
-                  };
-                  // Check duplicate badge name
-                  if (!myBadges.some(b => b.name === '독서왕')) {
-                      setMyBadges(prev => [newBadge, ...prev]);
-                  }
-              } else {
-                  // Generic Badge for other challenges
-                  const newBadge: any = {
-                      id: Date.now(),
-                      name: '실천왕',
-                      icon: '🔥',
-                      date: date
-                  };
-                  if (!myBadges.some(b => b.name === '실천왕')) {
-                    setMyBadges(prev => [newBadge, ...prev]);
-                  }
-              }
+              setLastRewardInfo({
+                  message: earnedMessage,
+                  points: earnedPoints,
+                  isComplete: isCompletedNow
+              });
 
-              showToast("인증 접수 완료. 배지와 포인트가 지급되었습니다.", "success");
+              showToast("AI 검증 완료! 인증이 등록되었습니다.", "success");
               setTimeout(() => setScreen(Screen.REWARD), 1500);
             }}
           />
@@ -1426,6 +1495,9 @@ const App: React.FC = () => {
       case Screen.REWARD:
         return (
           <RewardScreen
+            message={lastRewardInfo.message}
+            points={lastRewardInfo.points}
+            isComplete={lastRewardInfo.isComplete}
             onViewGrowth={() => {
               setActiveTab('growth');
               setScreen(Screen.GROWTH_RECORD);
@@ -1438,7 +1510,7 @@ const App: React.FC = () => {
         );
 
       case Screen.GROWTH_RECORD:
-        const activitiesToShow = currentUser?.role === UserType.TEACHER ? [] : myActivities; // Mock for teacher
+        const activitiesToShow = currentUser?.role === UserType.TEACHER ? [] : myActivities; 
         return (
           <GrowthRecordScreen
             userType={currentUser?.role || UserType.STUDENT}
@@ -1452,44 +1524,13 @@ const App: React.FC = () => {
 
       // Teacher Flows
       case Screen.TEACHER_CLASSES:
-        return (
-          <TeacherClassListScreen
-            classes={classes}
-            onUpload={() => setScreen(Screen.UPLOAD_CLASS)}
-            onLogout={handleLogout}
-          />
-        );
+        return <TeacherClassListScreen classes={classes} onUpload={() => setScreen(Screen.UPLOAD_CLASS)} onLogout={handleLogout} />;
 
       case Screen.UPLOAD_CLASS:
-        return (
-          <UploadClassScreen
-            onSubmit={(data) => {
-              const newClass: any = {
-                id: Date.now().toString(),
-                title: data.title,
-                date: new Date().toLocaleDateString(),
-                type: data.type,
-                description: '선생님이 업로드한 갓생강의입니다.',
-                url: data.url,
-                thumbnail: data.thumbnail
-              };
-              setClasses([newClass, ...classes]);
-              StorageService.addClass(newClass);
-              showToast("갓생강의가 업로드되었습니다.", "success");
-              setScreen(Screen.TEACHER_CLASSES);
-            }}
-            onCancel={() => setScreen(Screen.TEACHER_CLASSES)}
-          />
-        );
+        return <UploadClassScreen onSubmit={(data) => { const newClass: any = { id: Date.now().toString(), title: data.title, date: new Date().toLocaleDateString(), type: data.type, description: '선생님이 업로드한 갓생강의입니다.', url: data.url, thumbnail: data.thumbnail }; setClasses([newClass, ...classes]); StorageService.addClass(newClass); showToast("갓생강의가 업로드되었습니다.", "success"); setScreen(Screen.TEACHER_CLASSES); }} onCancel={() => setScreen(Screen.TEACHER_CLASSES)} />;
 
       case Screen.TEACHER_CHALLENGES:
-        return (
-          <TeacherChallengeListScreen
-            challenges={challenges}
-            onCreate={() => setScreen(Screen.CREATE_CHALLENGE)}
-            onLogout={handleLogout}
-          />
-        );
+        return <TeacherChallengeListScreen challenges={challenges} onCreate={() => setScreen(Screen.CREATE_CHALLENGE)} onLogout={handleLogout} />;
 
       case Screen.CREATE_CHALLENGE:
         return (
@@ -1504,7 +1545,7 @@ const App: React.FC = () => {
                 reward: data.reward,
                 duration: data.duration,
                 targetGrade: data.targetGrade,
-                // store extra data like weights etc. if needed in storage logic
+                badgeName: data.badgeName
               };
               setChallenges([newChallenge, ...challenges]);
               StorageService.addChallenge(newChallenge);
@@ -1524,7 +1565,7 @@ const App: React.FC = () => {
                />;
 
       default:
-        return <WelcomeScreen onNext={() => setScreen(Screen.ACCOUNT_SELECTION)} />;
+        return <WelcomeScreen onNext={() => setScreen(Screen.LOGIN)} />;
     }
   };
 
