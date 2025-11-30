@@ -8,7 +8,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { RegisterScreen } from './components/RegisterScreen';
 import { StorageService } from './services/storage';
 import { generateClassThumbnail, analyzeComment, verifyChallengeImage } from './services/geminiService';
-import { Play, Pause, RotateCcw, Upload, Camera, FileText, ChevronRight, CheckCircle, Clock, AlertTriangle, Target, AlertCircle, Plus, Video, Image, Film, File, FileSpreadsheet, Coins, Award, Loader2, Sparkles, Users, BookOpen, Link as LinkIcon, LogOut, Filter, ExternalLink, Copy, RefreshCw, ChevronDown, PlayCircle } from 'lucide-react';
+import { Play, Pause, RotateCcw, Upload, Camera, FileText, ChevronRight, CheckCircle, Clock, AlertTriangle, Target, AlertCircle, Plus, Video, Image, Film, File, FileSpreadsheet, Coins, Award, Loader2, Sparkles, Users, BookOpen, Link as LinkIcon, LogOut, Filter, ExternalLink, Copy, RefreshCw, ChevronDown, PlayCircle, Smartphone, Monitor } from 'lucide-react';
 
 // --- Helper Functions ---
 const fileToBase64 = (file: File): Promise<string> => {
@@ -237,52 +237,108 @@ const DemoVideoScreen = ({ classItem, onFinish, onBack }: { classItem: any | nul
 
   const openExternalLink = () => {
     if (classItem?.url) {
+      // 일부 모바일 브라우저에서 팝업 차단을 우회하기 위해 _blank 사용
       window.open(classItem.url, '_blank');
     }
   };
 
-  const isDirectVideoFile = () => {
-    return classItem?.type === 'video';
+  const isYouTube = (url: string) => {
+    return url.includes('youtube.com') || url.includes('youtu.be');
   };
 
+  const isDirectVideoFile = () => {
+    const url = classItem?.url?.toLowerCase() || '';
+    // 확장자가 명시적으로 비디오 파일이거나, type이 video인 경우
+    // AVI, WMV, FLV, TS, MTS 등 다양한 포맷 포함
+    return classItem?.type === 'video' || 
+           /\.(mp4|mov|avi|wmv|flv|webm|ts|mts|m2ts|mkv|3gp|ogv)$/i.test(url);
+  };
+
+  const isBrowserSupportedFormat = () => {
+    const url = classItem?.url?.toLowerCase() || '';
+    // 브라우저가 일반적으로 네이티브 재생 가능한 포맷
+    return /\.(mp4|webm|ogv|mov)$/i.test(url);
+  };
+
+  useEffect(() => {
+    if (classItem?.url && !isYouTube(classItem.url) && !isBrowserSupportedFormat() && isDirectVideoFile()) {
+        // 브라우저 미지원 포맷이면 처음부터 에러 상태로 처리하여 외부 재생 유도
+        setVideoError(true);
+    }
+  }, [classItem]);
+
   const renderPlayer = () => {
-      if (isDirectVideoFile()) {
+      // 1. YouTube Link (Not Embeddable in App to avoid errors)
+      if (classItem?.url && isYouTube(classItem.url)) {
+          return (
+            <div 
+              onClick={openExternalLink}
+              className="w-full h-full bg-black relative group cursor-pointer flex flex-col items-center justify-center"
+            >
+              <img 
+                src={classItem.thumbnail || `https://img.youtube.com/vi/${classItem.url.split('v=')[1]?.split('&')[0] || ''}/mqdefault.jpg`} 
+                alt="Thumbnail" 
+                className="absolute inset-0 w-full h-full object-cover opacity-60"
+                onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/640x360?text=Video'; }}
+              />
+              <div className="absolute inset-0 bg-black/40"></div>
+              <div className="relative z-10 flex flex-col items-center animate-in zoom-in fade-in duration-300">
+                 <PlayCircle size={64} className="text-red-600 fill-white mb-3 drop-shadow-lg transform transition-transform group-hover:scale-110" />
+                 <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-full text-white text-sm font-bold flex items-center gap-2 border border-white/20">
+                   <ExternalLink size={16} />
+                   YouTube에서 재생
+                 </div>
+              </div>
+            </div>
+          );
+      }
+
+      // 2. Video File (Native Playback Attempt)
+      if (isDirectVideoFile() && !videoError) {
         return (
           <video
             src={classItem.url || 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'} 
             controls
             autoPlay
+            playsInline
             className="w-full h-full bg-black object-contain"
             onError={() => setVideoError(true)}
           />
         );
       }
       
+      // 3. External Player Fallback (For AVI, WMV, FLV, Errors, or Links)
       return (
         <div 
           onClick={openExternalLink}
-          className="w-full h-full bg-black relative group cursor-pointer flex flex-col items-center justify-center"
+          className="w-full h-full bg-slate-900 relative group cursor-pointer flex flex-col items-center justify-center text-center p-6"
         >
-          {classItem?.thumbnail ? (
+          {classItem?.thumbnail && (
             <>
-              <img src={classItem.thumbnail} alt={title} className="absolute inset-0 w-full h-full object-cover opacity-60" />
-              <div className="absolute inset-0 bg-black/40"></div>
+              <img src={classItem.thumbnail} alt={title} className="absolute inset-0 w-full h-full object-cover opacity-40" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/30"></div>
             </>
-          ) : (
-             <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
-               <Video className="text-gray-700 w-24 h-24" />
-             </div>
           )}
           
           <div className="relative z-10 flex flex-col items-center animate-in zoom-in fade-in duration-300">
-             <PlayCircle size={64} className="text-white fill-white/20 mb-3 drop-shadow-lg transform transition-transform group-hover:scale-110" />
-             <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-full text-white text-sm font-bold flex items-center gap-2 border border-white/20">
-               <ExternalLink size={16} />
-               동영상 재생하기
+             <div className="flex gap-4 mb-4">
+                <div className="w-16 h-16 rounded-full bg-primary/20 backdrop-blur-sm flex items-center justify-center border-2 border-primary">
+                    <Smartphone size={32} className="text-white" />
+                </div>
+                <div className="w-16 h-16 rounded-full bg-primary/20 backdrop-blur-sm flex items-center justify-center border-2 border-primary">
+                    <Monitor size={32} className="text-white" />
+                </div>
              </div>
-             <p className="text-gray-200 text-xs mt-2 font-medium drop-shadow-md">
-               기기의 기본 플레이어로 재생됩니다
+             
+             <h3 className="text-white text-lg font-bold mb-2">외부 플레이어에서 재생</h3>
+             <p className="text-gray-300 text-xs mb-4 max-w-[240px]">
+               지원되지 않는 포맷(AVI, WMV 등)이거나<br/>코덱 문제입니다. 기기 자체 플레이어로 재생합니다.
              </p>
+
+             <div className="bg-primary hover:bg-primary-hover transition-colors px-6 py-3 rounded-full text-white text-sm font-bold flex items-center gap-2 shadow-lg shadow-primary/30">
+               <Play size={18} fill="currentColor" />
+               동영상 열기
+             </div>
           </div>
         </div>
       );
@@ -297,13 +353,13 @@ const DemoVideoScreen = ({ classItem, onFinish, onBack }: { classItem: any | nul
         <h1 className="text-[16px] font-bold text-text-main">영상 재생</h1>
       </div>
 
-      <div className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden border-b border-gray-100">
+      <div className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden border-b border-gray-100 shadow-inner">
         {renderPlayer()}
       </div>
 
       <div className="p-6 pb-2">
         <h1 className="text-[20px] font-bold text-text-main mb-2">{title}</h1>
-        <p className="text-[15px] text-text-main line-clamp-2">
+        <p className="text-[15px] text-text-main line-clamp-2 leading-relaxed">
           {description}
         </p>
       </div>
@@ -873,7 +929,7 @@ const UploadClassScreen = ({ onSubmit, onCancel }: { onSubmit: (data: { title: s
             className="w-full h-[44px] px-3 border border-card-border rounded-[8px] outline-none focus:border-primary"
           />
         </div>
-        {/* ... (Rest of UploadClassScreen UI) ... */}
+        
         <div className="space-y-2">
           <label className="text-sm font-medium text-text-main">업로드 방식</label>
           <div className="flex gap-2 p-1 bg-secondary-bg rounded-[12px]">
@@ -1297,7 +1353,7 @@ const App: React.FC = () => {
   const renderScreen = () => {
     switch (screen) {
       case Screen.WELCOME:
-        return <WelcomeScreen onNext={() => setScreen(Screen.LOGIN)} />; // Changed to Login per user request
+        return <WelcomeScreen onNext={() => setScreen(Screen.LOGIN)} />;
 
       case Screen.ACCOUNT_SELECTION:
         return <AccountSelectionScreen onSelect={(type) => { setRegisterRole(type); setScreen(Screen.REGISTER); }} />;
