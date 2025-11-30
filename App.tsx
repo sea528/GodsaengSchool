@@ -8,7 +8,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { RegisterScreen } from './components/RegisterScreen';
 import { StorageService } from './services/storage';
 import { generateClassThumbnail } from './services/geminiService';
-import { Play, Pause, RotateCcw, Upload, Camera, FileText, ChevronRight, CheckCircle, Clock, AlertTriangle, Target, AlertCircle, Plus, Video, Image, Film, File, FileSpreadsheet, Coins, Award, Loader2, Sparkles, Users, BookOpen, Link as LinkIcon, LogOut, Filter, ExternalLink, Copy, RefreshCw, ChevronDown } from 'lucide-react';
+import { Play, Pause, RotateCcw, Upload, Camera, FileText, ChevronRight, CheckCircle, Clock, AlertTriangle, Target, AlertCircle, Plus, Video, Image, Film, File, FileSpreadsheet, Coins, Award, Loader2, Sparkles, Users, BookOpen, Link as LinkIcon, LogOut, Filter, ExternalLink, Copy, RefreshCw, ChevronDown, PlayCircle } from 'lucide-react';
 
 // --- Screens Components ---
 
@@ -213,90 +213,65 @@ const StudentClassListScreen = ({ classes, onSelectClass, onLogout, studentClass
 
 // 4.1 Demo Video Screen (Student View - Player)
 const DemoVideoScreen = ({ classItem, onFinish, onBack }: { classItem: any | null, onFinish: () => void, onBack: () => void }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
   const [videoError, setVideoError] = useState(false);
   
   const title = classItem?.title || "데모 갓생강의 보기";
   const description = classItem?.description || "짧은 강의를 보고 댓글로 요약을 남겨 보세요. 자동으로 배지를 드립니다.";
 
-  const isDirectVideoFile = (url: string) => {
-    if (!url) return false;
-    const lower = url.toLowerCase();
-    return lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.webm') || lower.endsWith('.ogg');
-  };
-
-  const getYouTubeId = (url: string) => {
-    if (!url) return null;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-  };
-
   const openExternalLink = () => {
     if (classItem?.url) {
+      // Open in a new tab - this triggers native app (deep linking) on mobile 
+      // or new browser tab on computer, avoiding embedded player errors.
       window.open(classItem.url, '_blank');
     }
   };
 
-  // Mock player logic simplified for brevity
+  // Helper to determine if it's a direct file we can play in <video>
+  const isDirectVideoFile = () => {
+    return classItem?.type === 'video';
+  };
+
   const renderPlayer = () => {
-      // 1. Direct Video File (Uploaded or Direct Link)
-      if (classItem?.type === 'video' || (classItem?.url && isDirectVideoFile(classItem.url))) {
+      // 1. Direct Video File (Uploaded) -> Use Browser's Native HTML5 Player
+      if (isDirectVideoFile()) {
         return (
           <video
-            src={classItem.url || 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'} // Fallback for testing
+            src={classItem.url || 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'} 
             controls
-            autoPlay={isPlaying}
+            autoPlay
             className="w-full h-full bg-black object-contain"
             onError={() => setVideoError(true)}
           />
         );
       }
       
-      // 2. YouTube Link
-      const youtubeId = classItem?.url ? getYouTubeId(classItem.url) : null;
-      if (youtubeId) {
-        return (
-          <div className="w-full h-full relative group">
-             <iframe
-                src={`https://www.youtube.com/embed/${youtubeId}?autoplay=0&rel=0`}
-                title={title}
-                className="w-full h-full bg-black"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-              {/* Overlay button to open in native app/browser if desired */}
-              <button 
-                onClick={openExternalLink}
-                className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
-              >
-                <ExternalLink size={12} /> YouTube에서 열기
-              </button>
-          </div>
-        );
-      }
-
-      // 3. Other External Links (Blogs, Articles, etc.)
-      // Prevent iframe blocking issues by showing a card to open natively
+      // 2. YouTube or External Link -> Show Cover & Open Externally
+      // This solves "Error 153" and ensures native app usage on mobile.
       return (
-        <div className="w-full h-full bg-secondary-bg flex flex-col items-center justify-center p-6 text-center">
-          {classItem?.thumbnail && (
-            <img src={classItem.thumbnail} alt="" className="absolute inset-0 w-full h-full object-cover opacity-20" />
+        <div 
+          onClick={openExternalLink}
+          className="w-full h-full bg-black relative group cursor-pointer flex flex-col items-center justify-center"
+        >
+          {classItem?.thumbnail ? (
+            <>
+              <img src={classItem.thumbnail} alt={title} className="absolute inset-0 w-full h-full object-cover opacity-60" />
+              <div className="absolute inset-0 bg-black/40"></div>
+            </>
+          ) : (
+             <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
+               <Video className="text-gray-700 w-24 h-24" />
+             </div>
           )}
-          <div className="relative z-10 bg-white/90 p-6 rounded-[16px] shadow-sm backdrop-blur-sm max-w-[80%]">
-             <LinkIcon size={32} className="mx-auto text-primary mb-3" />
-             <h3 className="font-bold text-text-main mb-1">외부 링크 강의</h3>
-             <p className="text-xs text-muted-text mb-4">
-               블로그나 외부 웹사이트의 영상은<br/>브라우저에서 직접 재생해야 합니다.
+          
+          <div className="relative z-10 flex flex-col items-center animate-in zoom-in fade-in duration-300">
+             <PlayCircle size={64} className="text-white fill-white/20 mb-3 drop-shadow-lg transform transition-transform group-hover:scale-110" />
+             <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-full text-white text-sm font-bold flex items-center gap-2 border border-white/20">
+               <ExternalLink size={16} />
+               동영상 재생하기
+             </div>
+             <p className="text-gray-200 text-xs mt-2 font-medium drop-shadow-md">
+               기기의 기본 플레이어로 재생됩니다
              </p>
-             <Button 
-               onClick={openExternalLink}
-               className="h-[40px] text-sm"
-               icon={<ExternalLink size={16} />}
-             >
-               링크 열기
-             </Button>
           </div>
         </div>
       );
@@ -333,7 +308,7 @@ const DemoVideoScreen = ({ classItem, onFinish, onBack }: { classItem: any | nul
 
 // 5. Comment Practice Screen
 const CommentPracticeScreen = ({ onSubmit }: { onSubmit: (score: number, message: string) => void }) => {
-  const [type, setType] = useState('summary');
+  const [type, setType] = useState('question');
   const [comment, setComment] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -363,8 +338,8 @@ const CommentPracticeScreen = ({ onSubmit }: { onSubmit: (score: number, message
       <h1 className="text-[20px] font-bold text-text-main mb-6">댓글 유형을 선택해 보세요</h1>
 
       <div className="flex gap-3 mb-6" role="radiogroup" aria-label="댓글 유형 선택">
-        {['요약', '질문', '느낀 점'].map((opt) => {
-          const id = opt === '요약' ? 'summary' : opt === '질문' ? 'question' : 'feeling';
+        {['질문', '느낀 점'].map((opt) => {
+          const id = opt === '질문' ? 'question' : 'feeling';
           return (
             <button
               key={opt}
