@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { LayoutGrid, Target, LineChart, User as UserIcon } from 'lucide-react';
 import { Screen, UserType } from '../types';
@@ -51,7 +50,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentScreen, userType, o
       derivedActiveTab = 'challenges';
     } else if ([Screen.GROWTH_RECORD, Screen.TEACHER_DASHBOARD].includes(currentScreen)) {
       derivedActiveTab = 'growth';
-    } else if ([Screen.TEACHER_CLASSES, Screen.CLASS_JOIN, Screen.DEMO_VIDEO, Screen.STUDENT_CLASS_LIST].includes(currentScreen)) {
+    } else if ([Screen.TEACHER_CLASSES, Screen.CLASS_JOIN, Screen.DEMO_VIDEO].includes(currentScreen)) {
       derivedActiveTab = 'classes';
     }
   }

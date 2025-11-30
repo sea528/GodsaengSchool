@@ -18,7 +18,7 @@ export enum Screen {
   CREATE_CHALLENGE = 'CREATE_CHALLENGE',
   CREATE_CLASS = 'CREATE_CLASS',
   SIGNUP = 'SIGNUP',
-  STUDENT_CLASS_LIST = 'STUDENT_CLASS_LIST',
+  ADMIN_MANAGE_USERS = 'ADMIN_MANAGE_USERS',
 }
 
 export enum UserType {
@@ -61,6 +61,8 @@ export interface ActivityItem {
   status: 'trusted' | 'verified' | 'review' | 'rejected';
   student?: string;
   className?: string;
+  type?: '강의' | '도전';
+  progressInfo?: string;
 }
 
 export interface BadgeItem {

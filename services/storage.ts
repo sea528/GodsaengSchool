@@ -1,5 +1,5 @@
 
-import { User, UserType, ClassItem, ChallengeItem, ActivityItem, RegisteredClass, StudentProfile } from '../types';
+import { User, UserType, ClassItem, ChallengeItem, ActivityItem, RegisteredClass, StudentProfile, TeacherProfile } from '../types';
 
 const KEYS = {
   USERS: 'gs_users',
@@ -54,8 +54,6 @@ export const StorageService = {
     const users = StorageService.getUsers();
     
     // Check for duplicates
-    // For students: Name + Student Number must be unique
-    // For teachers: Name must be unique (simplified)
     const exists = users.some(u => {
       if (user.role === UserType.STUDENT) {
         return u.role === UserType.STUDENT && (u.profile as StudentProfile)?.studentNumber === (user.profile as StudentProfile)?.studentNumber;
@@ -70,6 +68,39 @@ export const StorageService = {
     localStorage.setItem(KEYS.USERS, JSON.stringify(users));
     localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(user));
     return true;
+  },
+
+  // 일괄 등록 (중복 건너뜀)
+  bulkRegister: (newUsers: User[]): { success: number, fail: number } => {
+    const users = StorageService.getUsers();
+    let successCount = 0;
+    let failCount = 0;
+
+    newUsers.forEach(user => {
+      const exists = users.some(u => {
+        if (user.role === UserType.STUDENT) {
+          return u.role === UserType.STUDENT && (u.profile as StudentProfile)?.studentNumber === (user.profile as StudentProfile)?.studentNumber;
+        } else {
+          return u.role === UserType.TEACHER && u.name === user.name;
+        }
+      });
+
+      if (!exists) {
+        users.push(user);
+        successCount++;
+      } else {
+        failCount++;
+      }
+    });
+
+    localStorage.setItem(KEYS.USERS, JSON.stringify(users));
+    return { success: successCount, fail: failCount };
+  },
+
+  removeUser: (id: string) => {
+    const users = StorageService.getUsers();
+    const newUsers = users.filter(u => u.id !== id);
+    localStorage.setItem(KEYS.USERS, JSON.stringify(newUsers));
   },
 
   logout: () => {
