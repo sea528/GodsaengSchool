@@ -24,7 +24,9 @@ export const BulkUploadScreen: React.FC<BulkUploadScreenProps> = ({ onBack }) =>
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
   const handleAdminLogin = () => {
-    if (adminName === 'haewon' && adminPass === 'tprudrh@') {
+    const normalizedId = adminName.trim();
+    // Allow both 'heawon' (requested) and 'haewon' (previous) to prevent confusion
+    if ((normalizedId === 'heawon' || normalizedId === 'haewon') && adminPass === 'tprudrh@') {
       setIsAuthenticated(true);
       setAuthError('');
     } else {
@@ -119,7 +121,9 @@ export const BulkUploadScreen: React.FC<BulkUploadScreenProps> = ({ onBack }) =>
               type="text"
               value={adminName}
               onChange={(e) => setAdminName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
               className="w-full h-[52px] px-4 border border-card-border rounded-[12px] focus:outline-none focus:border-primary"
+              placeholder="heawon"
             />
           </div>
           <div className="space-y-2">
@@ -128,11 +132,12 @@ export const BulkUploadScreen: React.FC<BulkUploadScreenProps> = ({ onBack }) =>
               type="password"
               value={adminPass}
               onChange={(e) => setAdminPass(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
               className="w-full h-[52px] px-4 border border-card-border rounded-[12px] focus:outline-none focus:border-primary"
             />
           </div>
           
-          {authError && <p className="text-error-text text-sm text-center">{authError}</p>}
+          {authError && <p className="text-error-text text-sm text-center animate-pulse">{authError}</p>}
           
           <Button fullWidth onClick={handleAdminLogin}>인증하기</Button>
         </div>

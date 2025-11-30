@@ -30,7 +30,7 @@ export enum UserType {
 
 export interface ClassItem {
   id: string;
-  schoolId: string; // Added
+  schoolId: string;
   title: string;
   date: string;
   type: 'video' | 'link';
@@ -41,7 +41,7 @@ export interface ClassItem {
 
 export interface ChallengeItem {
   id: string;
-  schoolId: string; // Added
+  schoolId: string;
   title: string;
   status: 'active' | 'pending';
   participants: number;
@@ -57,7 +57,7 @@ export interface ChallengeItem {
 
 export interface ActivityItem {
   id: string;
-  schoolId: string; // Added
+  schoolId: string;
   title: string;
   date: string;
   score: number;
@@ -83,7 +83,7 @@ export interface PointHistoryItem {
 }
 
 export interface RegisteredClass {
-  schoolId: string; // Added
+  schoolId: string;
   name: string;
   subject: string;
   code: string;
@@ -100,10 +100,11 @@ export interface TeacherProfile {
 
 export interface User {
   id: string;
-  schoolId: string; // Added: Data isolation key
+  schoolId: string;
   password?: string;
   name: string;
   role: UserType;
+  isAdmin?: boolean; // Added: School Admin Flag
   profile?: StudentProfile | TeacherProfile;
 }
 

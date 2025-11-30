@@ -10,8 +10,6 @@ const KEYS = {
   CURRENT_USER: 'gs_current_user',
 };
 
-// Initial data now needs a default school ID to be visible. 
-// We will assign them to '갓생고등학교' for demo purposes.
 const DEMO_SCHOOL = '갓생고등학교';
 
 const INITIAL_CLASSES: ClassItem[] = [
@@ -30,11 +28,31 @@ export const StorageService = {
     return itemSchoolId === userSchoolId;
   },
 
-  getUsers: (currentUser?: User | null): User[] => {
+  getUsers: (currentUser?: User | null, schoolIdFilter?: string): User[] => {
     const data = localStorage.getItem(KEYS.USERS);
     const allUsers: User[] = data ? JSON.parse(data) : [];
+    
+    // Admin override: if filter is provided, use it
+    if (schoolIdFilter) {
+        return allUsers.filter(u => u.schoolId === schoolIdFilter);
+    }
+
     if (!currentUser) return allUsers;
+    
+    // Super admin (heawon) sees everything (or filtered by UI)
+    if (currentUser.name === 'heawon' || currentUser.name === 'haewon') {
+        return allUsers; 
+    }
+
+    // School Admin or Regular Teacher sees only their school
     return allUsers.filter(u => u.schoolId === currentUser.schoolId);
+  },
+
+  // New method: Check if a school already has an admin
+  hasSchoolAdmin: (schoolId: string): boolean => {
+    const data = localStorage.getItem(KEYS.USERS);
+    const users: User[] = data ? JSON.parse(data) : [];
+    return users.some(u => u.schoolId === schoolId && u.isAdmin === true);
   },
 
   getCurrentUser: (): User | null => {
@@ -43,17 +61,17 @@ export const StorageService = {
   },
 
   login: (credentials: { name: string, password?: string, studentNumber?: string, type: UserType, schoolId: string }): User | null => {
-    // Super Admin Backdoor (Hardcoded)
-    if (credentials.name === 'haewon' && credentials.password === 'tprudrh@' && credentials.type === UserType.TEACHER) {
+    // Super Admin Backdoor
+    if ((credentials.name === 'heawon' || credentials.name === 'haewon') && credentials.password === 'tprudrh@' && credentials.type === UserType.TEACHER) {
       const adminUser: User = {
-        id: 'admin-haewon',
-        name: 'haewon',
+        id: 'admin-heawon',
+        name: 'heawon', 
         role: UserType.TEACHER,
-        schoolId: credentials.schoolId, // Log in to the specific school context
+        schoolId: credentials.schoolId || 'System Admin', 
         password: credentials.password,
+        isAdmin: true, // Super Admin
         profile: { teacherType: 'HOMEROOM' }
       };
-      // Save session
       localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(adminUser));
       return adminUser;
     }
@@ -69,6 +87,7 @@ export const StorageService = {
         u.password === credentials.password
       ) || null;
     } else {
+      // Teacher Login
       return users.find(u => 
         u.role === UserType.TEACHER && 
         u.schoolId === credentials.schoolId &&
@@ -78,14 +97,36 @@ export const StorageService = {
     }
   },
 
+  checkWrongRole: (credentials: { name: string, password?: string, studentNumber?: string, type: UserType, schoolId: string }): User | null => {
+    const data = localStorage.getItem(KEYS.USERS);
+    const users: User[] = data ? JSON.parse(data) : [];
+
+    if (credentials.type === UserType.STUDENT) {
+        return users.find(u => 
+            u.role === UserType.TEACHER &&
+            u.schoolId === credentials.schoolId &&
+            u.name === credentials.name && 
+            u.password === credentials.password
+        ) || null;
+    } else {
+         return users.find(u => 
+            u.role === UserType.STUDENT &&
+            u.schoolId === credentials.schoolId &&
+            u.name === credentials.name &&
+            u.password === credentials.password
+        ) || null;
+    }
+  },
+
   register: (user: User): boolean => {
     const data = localStorage.getItem(KEYS.USERS);
     const users: User[] = data ? JSON.parse(data) : [];
     
-    // Check for duplicates WITHIN the same school
+    // Check for duplicates
     const exists = users.some(u => {
       if (u.schoolId !== user.schoolId) return false;
 
+      // Duplicate Check
       if (user.role === UserType.STUDENT) {
         return u.role === UserType.STUDENT && (u.profile as StudentProfile)?.studentNumber === (user.profile as StudentProfile)?.studentNumber;
       } else {
@@ -95,9 +136,24 @@ export const StorageService = {
 
     if (exists) return false;
 
+    // Admin Constraint: Check if trying to register an admin for a school that already has one
+    if (user.isAdmin) {
+       const adminExists = users.some(u => u.schoolId === user.schoolId && u.isAdmin === true);
+       if (adminExists) return false; // Fail if admin exists
+    }
+
     users.push(user);
     localStorage.setItem(KEYS.USERS, JSON.stringify(users));
-    localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(user));
+    
+    // Only set current user if it's a self-registration (not bulk/admin create)
+    // We assume this method is used for self-registration mostly, but we can't distinguish easily without context.
+    // However, RegisterScreen uses this. Admin screen usually uses bulkRegister or specific logic.
+    // Let's keep it safe: update current user ONLY if not already logged in (self-reg)
+    const currentUser = localStorage.getItem(KEYS.CURRENT_USER);
+    if (!currentUser) {
+        localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(user));
+    }
+    
     return true;
   },
 
@@ -110,7 +166,6 @@ export const StorageService = {
     newUsers.forEach(user => {
       const exists = users.some(u => {
         if (u.schoolId !== user.schoolId) return false;
-
         if (user.role === UserType.STUDENT) {
           return u.role === UserType.STUDENT && (u.profile as StudentProfile)?.studentNumber === (user.profile as StudentProfile)?.studentNumber;
         } else {
@@ -118,6 +173,9 @@ export const StorageService = {
         }
       });
 
+      // Also ensure we don't bulk register multiple admins if one exists (though bulk usually is regular users)
+      // We skip admin check here for simplicity as bulk is mostly for students/teachers
+      
       if (!exists) {
         users.push(user);
         successCount++;
@@ -163,7 +221,6 @@ export const StorageService = {
     });
     localStorage.setItem(KEYS.USERS, JSON.stringify(updatedUsers));
     
-    // Update current user if matched
     if (currentUser.name === identifier) {
       const updatedCurrent = updatedUsers.find(u => u.name === identifier && u.schoolId === currentUser.schoolId);
       if (updatedCurrent) {
@@ -175,12 +232,9 @@ export const StorageService = {
   getClasses: (currentUser?: User | null): ClassItem[] => {
     const data = localStorage.getItem(KEYS.CLASSES);
     const items: ClassItem[] = data ? JSON.parse(data) : INITIAL_CLASSES;
-    
-    // Filter by school
     const schoolId = currentUser?.schoolId || DEMO_SCHOOL;
-    
-    // If we have initial classes but they don't have schoolId set (from old version), treat them as demo school
-    // In this new version, we default new items to have schoolId.
+    // Super Admin sees all? No, let's keep isolation to avoid clutter, or rely on currentUser context
+    if (currentUser?.name === 'heawon' || currentUser?.name === 'haewon') return items;
     return items.filter(item => (item.schoolId || DEMO_SCHOOL) === schoolId);
   },
 
@@ -201,6 +255,7 @@ export const StorageService = {
     const data = localStorage.getItem(KEYS.CHALLENGES);
     const items: ChallengeItem[] = data ? JSON.parse(data) : INITIAL_CHALLENGES;
     const schoolId = currentUser?.schoolId || DEMO_SCHOOL;
+    if (currentUser?.name === 'heawon' || currentUser?.name === 'haewon') return items;
     return items.filter(item => (item.schoolId || DEMO_SCHOOL) === schoolId);
   },
 
@@ -221,6 +276,7 @@ export const StorageService = {
     const data = localStorage.getItem(KEYS.ACTIVITIES);
     const items: ActivityItem[] = data ? JSON.parse(data) : [];
     const schoolId = currentUser?.schoolId || DEMO_SCHOOL;
+    if (currentUser?.name === 'heawon' || currentUser?.name === 'haewon') return items;
     return items.filter(item => (item.schoolId || DEMO_SCHOOL) === schoolId);
   },
 
@@ -241,6 +297,7 @@ export const StorageService = {
     const data = localStorage.getItem(KEYS.REGISTERED_CLASSES);
     const items: RegisteredClass[] = data ? JSON.parse(data) : [];
     const schoolId = currentUser?.schoolId || DEMO_SCHOOL;
+    if (currentUser?.name === 'heawon' || currentUser?.name === 'haewon') return items;
     return items.filter(item => (item.schoolId || DEMO_SCHOOL) === schoolId);
   },
 

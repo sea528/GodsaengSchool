@@ -22,7 +22,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = () => {
-    if (!formData.schoolId) {
+    // Admin Bypass check (heawon or haewon)
+    const isSuperAdmin = (formData.name === 'heawon' || formData.name === 'haewon') && formData.password === 'tprudrh@';
+
+    if (!formData.schoolId && !isSuperAdmin) {
       setError('학교명을 입력해주세요.');
       return;
     }
@@ -58,7 +61,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
       if (user) {
         onLoginSuccess(user);
       } else {
-         setError('학교명, 정보 또는 비밀번호가 일치하지 않습니다.');
+         // Smart error handling: Check if they are in the wrong tab
+         const wrongRoleUser = StorageService.checkWrongRole({
+            name: formData.name,
+            password: formData.password,
+            studentNumber: formData.studentNumber,
+            type: loginType,
+            schoolId: formData.schoolId
+         });
+
+         if (wrongRoleUser) {
+             setError(`${wrongRoleUser.role === UserType.TEACHER ? '교사' : '학생'} 계정입니다. ${wrongRoleUser.role === UserType.TEACHER ? '교사' : '학생'} 로그인 탭을 이용해주세요.`);
+         } else {
+             setError('학교명, 정보 또는 비밀번호가 일치하지 않습니다.');
+         }
          setIsLoading(false);
       }
     }, 1000);
@@ -103,6 +119,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
               type="text"
               value={formData.schoolId}
               onChange={(e) => setFormData({...formData, schoolId: e.target.value})}
+              onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
               className="w-full h-[52px] pl-10 pr-4 border border-card-border rounded-[12px] focus:outline-none focus:border-primary transition-colors"
               placeholder="학교 이름을 입력하세요 (예: 갓생고)"
             />
@@ -112,13 +129,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
         {/* Name Input - Only for Teachers */}
         {loginType === UserType.TEACHER && (
           <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-            <label className="text-sm font-medium text-text-main">이름</label>
+            <label className="text-sm font-medium text-text-main">이름 (ID)</label>
             <div className="relative">
               <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-text" size={20} />
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
+                onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                 className="w-full h-[52px] pl-10 pr-4 border border-card-border rounded-[12px] focus:outline-none focus:border-primary transition-colors"
                 placeholder="이름 입력"
               />
@@ -136,6 +154,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
                 type="text"
                 value={formData.studentNumber}
                 onChange={(e) => setFormData({...formData, studentNumber: e.target.value})}
+                onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                 className="w-full h-[52px] pl-10 pr-4 border border-card-border rounded-[12px] focus:outline-none focus:border-primary transition-colors"
                 placeholder="학번 입력 (예: 10101)"
               />
@@ -151,13 +170,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
               type="password"
               value={formData.password}
               onChange={(e) => setFormData({...formData, password: e.target.value})}
+              onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
               className="w-full h-[52px] pl-10 pr-4 border border-card-border rounded-[12px] focus:outline-none focus:border-primary transition-colors"
               placeholder="비밀번호 입력"
             />
           </div>
         </div>
 
-        {error && <p className="text-error-text text-sm bg-error-bg p-3 rounded-[8px]">{error}</p>}
+        {error && <p className="text-error-text text-sm bg-error-bg p-3 rounded-[8px] animate-pulse">{error}</p>}
       </div>
 
       <div className="mt-auto space-y-4">
