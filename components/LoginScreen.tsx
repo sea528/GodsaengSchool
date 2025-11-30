@@ -21,13 +21,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = () => {
-    if (!formData.name || !formData.password) {
-      setError('이름과 비밀번호를 입력해주세요.');
-      return;
+    // Teacher validation: Name + Password
+    if (loginType === UserType.TEACHER) {
+      if (!formData.name || !formData.password) {
+        setError('이름과 비밀번호를 입력해주세요.');
+        return;
+      }
     }
-    if (loginType === UserType.STUDENT && !formData.studentNumber) {
-      setError('학번을 입력해주세요.');
-      return;
+
+    // Student validation: Student Number + Password
+    if (loginType === UserType.STUDENT) {
+      if (!formData.studentNumber || !formData.password) {
+        setError('학번과 비밀번호를 입력해주세요.');
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -35,7 +42,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
 
     setTimeout(() => {
       const user = StorageService.login({
-        name: formData.name,
+        name: formData.name, // Will be empty for students, ignored by service logic for student type
         password: formData.password,
         studentNumber: formData.studentNumber,
         type: loginType
@@ -48,7 +55,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
         if (formData.password === 'demo') {
            const demoUser: User = {
              id: Date.now().toString(),
-             name: formData.name,
+             name: loginType === UserType.STUDENT ? '학생(데모)' : formData.name,
              role: loginType,
              password: 'demo',
              profile: loginType === UserType.STUDENT 
@@ -58,7 +65,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
            StorageService.register(demoUser);
            onLoginSuccess(demoUser);
         } else {
-          setError('정보가 일치하지 않습니다. 이름과 비밀번호를 확인해주세요.');
+          setError('정보가 일치하지 않습니다. 입력을 확인해주세요.');
           setIsLoading(false);
         }
       }
@@ -96,22 +103,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
       </div>
 
       <div className="flex-1 space-y-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-text-main">이름</label>
-          <div className="relative">
-            <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-text" size={20} />
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({...formData, name: e.target.value})}
-              className="w-full h-[52px] pl-10 pr-4 border border-card-border rounded-[12px] focus:outline-none focus:border-primary transition-colors"
-              placeholder="이름 입력"
-            />
+        {/* Name Input - Only for Teachers */}
+        {loginType === UserType.TEACHER && (
+          <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+            <label className="text-sm font-medium text-text-main">이름</label>
+            <div className="relative">
+              <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-text" size={20} />
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                className="w-full h-[52px] pl-10 pr-4 border border-card-border rounded-[12px] focus:outline-none focus:border-primary transition-colors"
+                placeholder="이름 입력"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
+        {/* Student Number Input - Only for Students */}
         {loginType === UserType.STUDENT && (
-          <div className="space-y-2">
+          <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
             <label className="text-sm font-medium text-text-main">학번</label>
             <div className="relative">
               <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-text" size={20} />

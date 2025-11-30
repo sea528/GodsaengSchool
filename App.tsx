@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Screen, UserType, User } from './types';
 import { Button } from './components/Button';
@@ -8,7 +7,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { RegisterScreen } from './components/RegisterScreen';
 import { StorageService } from './services/storage';
 import { generateClassThumbnail, analyzeComment, verifyChallengeImage } from './services/geminiService';
-import { Play, Pause, RotateCcw, Upload, Camera, FileText, ChevronRight, CheckCircle, Clock, AlertTriangle, Target, AlertCircle, Plus, Video, Image, Film, File, FileSpreadsheet, Coins, Award, Loader2, Sparkles, Users, BookOpen, Link as LinkIcon, LogOut, Filter, ExternalLink, Copy, RefreshCw, ChevronDown, PlayCircle, Smartphone, Monitor } from 'lucide-react';
+import { Play, Pause, RotateCcw, Upload, Camera, FileText, ChevronRight, CheckCircle, Clock, AlertTriangle, Target, AlertCircle, Plus, Video, Image, Film, File, FileSpreadsheet, Coins, Award, Loader2, Sparkles, Users, BookOpen, Link as LinkIcon, LogOut, Filter, ExternalLink, Copy, RefreshCw, ChevronDown, PlayCircle, Smartphone, Monitor, Trash2 } from 'lucide-react';
 
 // --- Helper Functions ---
 const fileToBase64 = (file: File): Promise<string> => {
@@ -854,12 +853,12 @@ const TeacherDashboardScreen = ({
 // (Reusing existing TeacherClassListScreen, UploadClassScreen, TeacherChallengeListScreen, CreateChallengeScreen from previous context - assuming no changes needed there unless specified, I will include abbreviated versions to keep file complete if needed, but for XML patch I will focus on main App flow)
 
 // 11. Teacher Class List Screen
-const TeacherClassListScreen = ({ onUpload, classes, onLogout }: { onUpload: () => void, classes: any[], onLogout: () => void }) => {
+const TeacherClassListScreen = ({ onUpload, classes, onLogout, onDelete }: { onUpload: () => void, classes: any[], onLogout: () => void, onDelete: (id: string) => void }) => {
   return (
     <div className="flex flex-col h-full bg-white">
       <div className="p-6 pb-4 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
         <div>
-          <h1 className="text-[20px] font-bold text-text-main">우리 반 갓생강의</h1>
+          <h1 className="text-[20px] font-bold text-text-main">갓생강의</h1>
         </div>
         <div className="flex items-center gap-4">
           <Button variant="icon" onClick={onUpload} aria-label="클래스 업로드">
@@ -875,7 +874,7 @@ const TeacherClassListScreen = ({ onUpload, classes, onLogout }: { onUpload: () 
           <div className="text-center py-8 text-muted-text text-sm">등록된 갓생강의가 없습니다.</div>
         ) : (
           classes.map(c => (
-            <div key={c.id} className="flex gap-4 p-3 border border-gray-100 rounded-[12px] shadow-sm overflow-hidden">
+            <div key={c.id} className="flex gap-4 p-3 border border-gray-100 rounded-[12px] shadow-sm overflow-hidden group">
               <div className="w-[120px] h-[68px] bg-gray-200 rounded-[8px] flex items-center justify-center flex-shrink-0 relative overflow-hidden">
                 {c.thumbnail ? (
                   <img src={c.thumbnail} alt={c.title} className="w-full h-full object-cover" />
@@ -887,6 +886,13 @@ const TeacherClassListScreen = ({ onUpload, classes, onLogout }: { onUpload: () 
                 <h3 className="font-bold text-sm mb-1 line-clamp-2">{c.title}</h3>
                 <p className="text-xs text-muted-text">{c.date}</p>
               </div>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onDelete(c.id); }}
+                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors self-center mr-1"
+                aria-label="강의 삭제"
+              >
+                <Trash2 size={18} />
+              </button>
             </div>
           ))
         )}
@@ -1327,6 +1333,13 @@ const App: React.FC = () => {
     showToast(`상태가 ${status === 'trusted' ? '승인' : '반려'}되었습니다.`, 'success');
   };
 
+  const handleDeleteClass = (id: string) => {
+    // Remove window.confirm to bypass potential browser blocking issues
+    StorageService.removeClass(id);
+    setClasses(prev => prev.filter(c => c.id !== id));
+    showToast('강의가 삭제되었습니다.', 'success');
+  };
+
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ show: true, message, type });
   };
@@ -1580,7 +1593,7 @@ const App: React.FC = () => {
 
       // Teacher Flows
       case Screen.TEACHER_CLASSES:
-        return <TeacherClassListScreen classes={classes} onUpload={() => setScreen(Screen.UPLOAD_CLASS)} onLogout={handleLogout} />;
+        return <TeacherClassListScreen classes={classes} onUpload={() => setScreen(Screen.UPLOAD_CLASS)} onLogout={handleLogout} onDelete={handleDeleteClass} />;
 
       case Screen.UPLOAD_CLASS:
         return <UploadClassScreen onSubmit={(data) => { const newClass: any = { id: Date.now().toString(), title: data.title, date: new Date().toLocaleDateString(), type: data.type, description: '선생님이 업로드한 갓생강의입니다.', url: data.url, thumbnail: data.thumbnail }; setClasses([newClass, ...classes]); StorageService.addClass(newClass); showToast("갓생강의가 업로드되었습니다.", "success"); setScreen(Screen.TEACHER_CLASSES); }} onCancel={() => setScreen(Screen.TEACHER_CLASSES)} />;

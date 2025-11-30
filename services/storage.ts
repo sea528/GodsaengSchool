@@ -11,8 +11,8 @@ const KEYS = {
 };
 
 const INITIAL_CLASSES: ClassItem[] = [
-  { id: '1', title: '3분 갓생: 효율적인 시간 관리법', date: '2024.03.15', type: 'video', description: '하루 24시간을 48시간처럼 쓰는 시간 관리 노하우', url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4' },
-  { id: '2', title: '학습 집중력을 높이는 5가지 습관', date: '2024.03.14', type: 'link', description: '공부할 때 집중이 안 된다면 꼭 확인해보세요.', url: 'https://example.com' },
+  { id: 'sample-1', title: '3분 갓생: 효율적인 시간 관리법', date: '2024.03.15', type: 'video', description: '하루 24시간을 48시간처럼 쓰는 시간 관리 노하우', url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4' },
+  { id: 'sample-2', title: '학습 집중력을 높이는 5가지 습관', date: '2024.03.14', type: 'link', description: '공부할 때 집중이 안 된다면 꼭 확인해보세요.', url: 'https://example.com' },
 ];
 
 const INITIAL_CHALLENGES: ChallengeItem[] = [
@@ -37,7 +37,7 @@ export const StorageService = {
     if (credentials.type === UserType.STUDENT) {
       return users.find(u => 
         u.role === UserType.STUDENT && 
-        u.name === credentials.name && 
+        // For students, ignore name, check studentNumber
         (u.profile as StudentProfile)?.studentNumber === credentials.studentNumber &&
         u.password === credentials.password
       ) || null;
@@ -113,6 +113,13 @@ export const StorageService = {
   addClass: (item: ClassItem) => {
     const items = StorageService.getClasses();
     localStorage.setItem(KEYS.CLASSES, JSON.stringify([item, ...items]));
+  },
+
+  removeClass: (id: string) => {
+    const items = StorageService.getClasses();
+    // Convert both to string to be safe
+    const newItems = items.filter(c => String(c.id) !== String(id));
+    localStorage.setItem(KEYS.CLASSES, JSON.stringify(newItems));
   },
 
   getChallenges: (): ChallengeItem[] => {
